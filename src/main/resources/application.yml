@@ -5,16 +5,13 @@ spring:
     virtual:
       enabled: true
   datasource:
-    url: jdbc:h2:mem:minibank;DB_CLOSE_DELAY=-1
-    username: sa
-    password: ""
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/minibank}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:postgres}
   jpa:
     hibernate:
-      ddl-auto: create
+      ddl-auto: update
     open-in-view: false
-  h2:
-    console:
-      enabled: true
 
 management:
   endpoints:

@@ -1,5 +1,7 @@
 # minibank
 
+[![CI](https://github.com/MiguelCorre/minibank/actions/workflows/ci.yml/badge.svg)](https://github.com/MiguelCorre/minibank/actions/workflows/ci.yml)
+
 A small but production-minded **modular monolith** for core banking flows: accounts, deposits,
 and **idempotent money transfers** with a double-entry ledger.
 
@@ -27,18 +29,29 @@ It demonstrates the patterns that matter in payments/banking backends:
 
 ## Requirements
 
-- JDK 21
-- Maven 3.9+
+- JDK 21 (Maven wrapper included, no Maven install needed)
+- PostgreSQL — either a local instance or the provided Docker Compose service
+- Docker (for Testcontainers-based tests and/or the Compose database)
 
 ## Run
 
+With a local PostgreSQL on `localhost:5432` (database `minibank`, user/password `postgres`):
+
 ```bash
-mvn spring-boot:run
+./mvnw spring-boot:run
 ```
 
-The app starts on `http://localhost:8080` with an in-memory H2 database and seeds two demo
-accounts (ids are logged at startup). H2 console: `http://localhost:8080/h2-console`
-(JDBC URL `jdbc:h2:mem:minibank`, user `sa`).
+Or start the database with Docker Compose (mapped to host port **5433** to avoid clashing
+with a locally installed PostgreSQL):
+
+```bash
+docker compose up -d
+DB_URL=jdbc:postgresql://localhost:5433/minibank ./mvnw spring-boot:run
+```
+
+Connection settings are overridable via `DB_URL`, `DB_USER` and `DB_PASSWORD`. The app
+starts on `http://localhost:8080` and seeds two demo accounts on first run (ids are logged
+at startup).
 
 ## API
 
@@ -77,10 +90,14 @@ curl -s localhost:8080/api/accounts/$FROM/ledger | jq
 ## Tests
 
 ```bash
-mvn test
+./mvnw test
 ```
 
-Integration tests (`@SpringBootTest` + MockMvc) cover the happy path, idempotent replay,
+Tests run against a **real PostgreSQL via Testcontainers 2** (Docker required) — the
+`@ServiceConnection` container replaces the datasource automatically, so what is tested is
+what runs in production. Note: Testcontainers 1.x cannot talk to Docker Engine 29+
+(minimum API version raised to 1.44), which is why this project pins Testcontainers 2.x
+over the version managed by the Spring Boot BOM. Integration tests (`@SpringBootTest` + MockMvc) cover the happy path, idempotent replay,
 insufficient funds (422), unknown accounts (404), same-account transfers (400) and the
 missing idempotency header (400).
 
@@ -88,7 +105,9 @@ missing idempotency header (400).
 
 - **Money** is `BigDecimal` with scale 2 and `DECIMAL(19,2)` columns. Currency is per
   account; cross-currency transfers are rejected (`422`) — FX would be its own module.
-- **H2 in-memory** keeps the project runnable with zero setup. Swapping to PostgreSQL is a
-  datasource change; the locking strategy already assumes a real RDBMS.
+- **PostgreSQL everywhere** — the app, the Compose service and the Testcontainers tests
+  all use PostgreSQL 17, so pessimistic locking and constraint behaviour are exercised on
+  the same engine that runs in production. CI (GitHub Actions) runs the full suite on
+  every push.
 - **No authentication** by design — the focus is the transactional core. Spring Security
   with JWT would sit in front of the controllers without touching the domain.
