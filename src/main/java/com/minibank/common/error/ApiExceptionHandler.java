@@ -27,6 +27,8 @@ class ApiExceptionHandler {
             case InvalidTransferException ignored -> HttpStatus.BAD_REQUEST;
             case EmailAlreadyUsedException ignored -> HttpStatus.CONFLICT;
             case InvalidCredentialsException ignored -> HttpStatus.UNAUTHORIZED;
+            case InvalidRefreshTokenException ignored -> HttpStatus.UNAUTHORIZED;
+            case TooManyLoginAttemptsException ignored -> HttpStatus.TOO_MANY_REQUESTS;
         };
         return ProblemDetail.forStatusAndDetail(status, ex.getMessage());
     }

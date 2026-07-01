@@ -1,0 +1,29 @@
+# Fly.io app definition — deploy with:
+#   fly launch --no-deploy   (creates the app, keep this file)
+#   fly secrets set JWT_SECRET=<random 32+ chars> DB_URL=... DB_USER=... DB_PASSWORD=...
+#   fly deploy
+app = "minibank"
+primary_region = "cdg"
+
+[build]
+  # uses the Dockerfile in this directory
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+[checks]
+  [checks.health]
+    type = "http"
+    port = 8080
+    path = "/actuator/health"
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "20s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"

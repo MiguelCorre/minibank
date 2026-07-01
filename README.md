@@ -22,9 +22,13 @@ It demonstrates the patterns that matter in payments/banking backends:
 - **RFC 7807 error responses** — a sealed `DomainException` hierarchy is mapped to HTTP
   statuses with an exhaustive pattern-matching `switch` (Java 21): adding a new domain
   error fails compilation until it is mapped.
-- **Stateless JWT security** — register/login issue HS256 tokens via Spring Security's own
-  `JwtEncoder`/`JwtDecoder` (no third-party JWT library); `/api/**` requires a bearer
-  token, passwords are BCrypt-hashed.
+- **Stateless JWT security** — register/login issue short-lived (15 min) HS256 access
+  tokens via Spring Security's own `JwtEncoder`/`JwtDecoder` (no third-party JWT library);
+  `/api/**` requires a bearer token, passwords are BCrypt-hashed.
+- **Rotating refresh tokens** — opaque 256-bit tokens (only the SHA-256 hash is stored)
+  with single-use rotation; presenting an already-rotated token is treated as theft and
+  revokes the user's whole token family. Failed logins are rate-limited (5 per 15 min,
+  then `429`).
 - **Versioned schema with Flyway** — migrations own the database
   (`src/main/resources/db/migration`), Hibernate runs in `validate` mode.
 - **Modular monolith layout** — `account`, `transfer`, `ledger`, `auth` and `common`
@@ -69,6 +73,22 @@ java -jar target/minibank-0.1.0.jar
 The profile builds the Angular app and embeds it under `/static`; Spring serves the SPA
 (with an index.html fallback for client-side routes) and the API from one origin.
 
+### Docker / cloud deployment
+
+A multi-stage [`Dockerfile`](Dockerfile) builds everything (frontend included) and runs
+the jar as a non-root user on a JRE-only image:
+
+```bash
+docker build -t minibank .
+docker run -p 8080:8080 \
+  -e DB_URL=jdbc:postgresql://host.docker.internal:5432/minibank \
+  -e JWT_SECRET=$(openssl rand -hex 32) minibank
+```
+
+[`fly.toml`](fly.toml) is included for Fly.io — `fly launch --no-deploy`, set the
+`JWT_SECRET`/`DB_*` secrets (a managed PostgreSQL like Fly Postgres or Neon works), then
+`fly deploy`. Any Docker-based host (Railway, Render, Cloud Run) works the same way.
+
 ## Frontend
 
 An **Angular 22** SPA lives in [`frontend/`](frontend) — login/registration, accounts
@@ -91,7 +111,9 @@ All `/api/**` endpoints except `/api/auth/register` and `/api/auth/login` requir
 | Method | Path                              | Description                                  |
 |--------|-----------------------------------|----------------------------------------------|
 | POST   | `/api/auth/register`              | Create a user (`email`, `password`, `displayName`) |
-| POST   | `/api/auth/login`                 | Exchange credentials for a JWT               |
+| POST   | `/api/auth/login`                 | Credentials → access + refresh token pair    |
+| POST   | `/api/auth/refresh`               | Rotate the refresh token, new pair           |
+| POST   | `/api/auth/logout`                | Revoke the refresh token                     |
 | GET    | `/api/auth/me`                    | Current user from the token                  |
 | POST   | `/api/accounts`                   | Open an account (`holderName`, `currency`)   |
 | GET    | `/api/accounts`                   | List accounts, newest first                  |

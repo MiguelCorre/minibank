@@ -8,7 +8,8 @@ package com.minibank.common.error;
 public abstract sealed class DomainException extends RuntimeException
         permits AccountNotFoundException, TransferNotFoundException, InsufficientFundsException,
                 CurrencyMismatchException, InvalidTransferException,
-                EmailAlreadyUsedException, InvalidCredentialsException {
+                EmailAlreadyUsedException, InvalidCredentialsException,
+                InvalidRefreshTokenException, TooManyLoginAttemptsException {
 
     protected DomainException(String message) {
         super(message);

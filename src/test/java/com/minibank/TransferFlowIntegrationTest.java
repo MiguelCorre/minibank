@@ -53,7 +53,7 @@ class TransferFlowIntegrationTest {
                                 """.formatted(email)))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
-        bearer = "Bearer " + objectMapper.readTree(response).get("token").asText();
+        bearer = "Bearer " + objectMapper.readTree(response).get("accessToken").asText();
     }
 
     @Test
