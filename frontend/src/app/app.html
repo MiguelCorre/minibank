@@ -1,0 +1,17 @@
+<div class="shell">
+  <nav class="topbar">
+    <a class="brand" routerLink="/">mini<strong>bank</strong></a>
+    <div class="links">
+      <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Accounts</a>
+      <a routerLink="/transfer" routerLinkActive="active">Transfer</a>
+    </div>
+  </nav>
+
+  <main>
+    <router-outlet />
+  </main>
+
+  <footer class="footer muted">
+    minibank — Java 21 · Spring Boot · PostgreSQL · Angular
+  </footer>
+</div>

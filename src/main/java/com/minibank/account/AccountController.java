@@ -1,5 +1,6 @@
 package com.minibank.account;
 
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
@@ -31,6 +32,11 @@ class AccountController {
     @ResponseStatus(HttpStatus.CREATED)
     AccountResponse open(@Valid @RequestBody OpenAccountRequest request) {
         return AccountResponse.from(accountService.open(request.holderName(), request.currency()));
+    }
+
+    @GetMapping
+    List<AccountResponse> list() {
+        return accountService.list().stream().map(AccountResponse::from).toList();
     }
 
     @GetMapping("/{id}")

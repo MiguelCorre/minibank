@@ -1,0 +1,55 @@
+<section class="page">
+  <header class="page-header">
+    <h1>Accounts</h1>
+    <p class="muted">Open accounts and follow their balances.</p>
+  </header>
+
+  <form class="card form-row" [formGroup]="openForm" (ngSubmit)="open()">
+    <div class="field">
+      <label for="holderName">Holder name</label>
+      <input id="holderName" type="text" formControlName="holderName" placeholder="e.g. Maria Silva" />
+    </div>
+    <div class="field field-small">
+      <label for="currency">Currency</label>
+      <input id="currency" type="text" formControlName="currency" maxlength="3" />
+    </div>
+    <button class="btn primary" type="submit" [disabled]="opening()">
+      {{ opening() ? 'Opening…' : 'Open account' }}
+    </button>
+  </form>
+
+  @if (error(); as message) {
+    <p class="alert error">{{ message }}</p>
+  }
+
+  @if (loading()) {
+    <p class="muted">Loading accounts…</p>
+  } @else if (accounts().length === 0) {
+    <div class="card empty">No accounts yet — open the first one above.</div>
+  } @else {
+    <div class="card table-card">
+      <table>
+        <thead>
+          <tr>
+            <th>Holder</th>
+            <th>Account number</th>
+            <th class="num">Balance</th>
+            <th>Opened</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (account of accounts(); track account.id) {
+            <tr>
+              <td>{{ account.holderName }}</td>
+              <td class="mono">{{ account.accountNumber }}</td>
+              <td class="num strong">{{ account.balance | currency: account.currency }}</td>
+              <td>{{ account.createdAt | date: 'mediumDate' }}</td>
+              <td><a class="btn ghost" [routerLink]="['/accounts', account.id]">Details</a></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</section>

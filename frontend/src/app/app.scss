@@ -1,0 +1,61 @@
+.shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.8rem 1.5rem;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+
+  .brand {
+    font-size: 1.15rem;
+    text-decoration: none;
+    color: var(--text);
+    letter-spacing: -0.02em;
+
+    strong {
+      color: var(--primary);
+    }
+  }
+
+  .links {
+    display: flex;
+    gap: 0.35rem;
+
+    a {
+      text-decoration: none;
+      color: var(--muted);
+      font-weight: 600;
+      padding: 0.4rem 0.9rem;
+      border-radius: 8px;
+
+      &:hover {
+        color: var(--text);
+      }
+
+      &.active {
+        color: var(--primary);
+        background: #eff6ff;
+      }
+    }
+  }
+}
+
+main {
+  flex: 1;
+}
+
+.footer {
+  text-align: center;
+  padding: 1.25rem;
+  font-size: 0.8rem;
+  border-top: 1px solid var(--border);
+}

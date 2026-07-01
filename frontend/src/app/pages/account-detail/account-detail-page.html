@@ -1,0 +1,67 @@
+<section class="page">
+  <a class="back" routerLink="/">← All accounts</a>
+
+  @if (error(); as message) {
+    <p class="alert error">{{ message }}</p>
+  }
+
+  @if (account(); as acc) {
+    <header class="page-header">
+      <h1>{{ acc.holderName }}</h1>
+      <p class="mono muted">{{ acc.accountNumber }}</p>
+    </header>
+
+    <div class="cards-row">
+      <div class="card stat">
+        <span class="muted">Balance</span>
+        <strong class="balance">{{ acc.balance | currency: acc.currency }}</strong>
+      </div>
+
+      <form class="card form-row" [formGroup]="depositForm" (ngSubmit)="deposit()">
+        <div class="field">
+          <label for="amount">Deposit amount</label>
+          <input id="amount" type="number" step="0.01" min="0.01" formControlName="amount" placeholder="0.00" />
+        </div>
+        <button class="btn primary" type="submit" [disabled]="depositing()">
+          {{ depositing() ? 'Depositing…' : 'Deposit' }}
+        </button>
+      </form>
+    </div>
+
+    <h2>Ledger</h2>
+    @if (ledger().length === 0) {
+      <div class="card empty">No movements yet.</div>
+    } @else {
+      <div class="card table-card">
+        <table>
+          <thead>
+            <tr>
+              <th>When</th>
+              <th>Type</th>
+              <th class="num">Amount</th>
+              <th class="num">Balance after</th>
+              <th>Transfer</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (entry of ledger(); track entry.id) {
+              <tr>
+                <td>{{ entry.createdAt | date: 'medium' }}</td>
+                <td>
+                  <span class="badge" [class.debit]="entry.type === 'DEBIT'" [class.credit]="entry.type === 'CREDIT'">
+                    {{ entry.type }}
+                  </span>
+                </td>
+                <td class="num" [class.negative]="entry.type === 'DEBIT'">
+                  {{ (entry.type === 'DEBIT' ? -entry.amount : entry.amount) | currency: acc.currency }}
+                </td>
+                <td class="num">{{ entry.balanceAfter | currency: acc.currency }}</td>
+                <td class="mono muted">{{ entry.transferId ? entry.transferId.slice(0, 8) : '—' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  }
+</section>

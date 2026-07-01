@@ -1,9 +1,11 @@
 package com.minibank.account;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +32,11 @@ public class AccountService {
     @Transactional(readOnly = true)
     public Account get(UUID id) {
         return accounts.findById(id).orElseThrow(() -> new AccountNotFoundException(id));
+    }
+
+    @Transactional(readOnly = true)
+    public List<Account> list() {
+        return accounts.findAll(Sort.by(Sort.Direction.DESC, "createdAt"));
     }
 
     @Transactional

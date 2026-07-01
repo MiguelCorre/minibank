@@ -53,11 +53,25 @@ Connection settings are overridable via `DB_URL`, `DB_USER` and `DB_PASSWORD`. T
 starts on `http://localhost:8080` and seeds two demo accounts on first run (ids are logged
 at startup).
 
+## Frontend
+
+An **Angular 22** SPA lives in [`frontend/`](frontend) — accounts dashboard, account
+detail with ledger, deposits, and transfers with a client-generated `Idempotency-Key`
+(kept across retries, renewed after success). Standalone components, signals, zoneless
+change detection and the built-in control flow.
+
+```bash
+cd frontend
+npm ci
+npm start        # dev server on :4200, /api proxied to the backend on :8080
+```
+
 ## API
 
 | Method | Path                              | Description                                  |
 |--------|-----------------------------------|----------------------------------------------|
 | POST   | `/api/accounts`                   | Open an account (`holderName`, `currency`)   |
+| GET    | `/api/accounts`                   | List accounts, newest first                  |
 | GET    | `/api/accounts/{id}`              | Account details and balance                  |
 | POST   | `/api/accounts/{id}/deposits`     | Deposit funds (`amount`)                     |
 | GET    | `/api/accounts/{id}/ledger`       | Ledger entries, newest first                 |

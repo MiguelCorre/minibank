@@ -126,6 +126,15 @@ class TransferFlowIntegrationTest {
     }
 
     @Test
+    void accountsListingContainsOpenedAccounts() throws Exception {
+        String id = openAccountWithBalance("Ivan", "0.00");
+
+        JsonNode accounts = getJson("/api/accounts");
+        assertThat(accounts.isArray()).isTrue();
+        assertThat(accounts.findValuesAsText("id")).contains(id);
+    }
+
+    @Test
     void transferToSameAccountIsRejectedWith400() throws Exception {
         String account = openAccountWithBalance("Heidi", "100.00");
 
