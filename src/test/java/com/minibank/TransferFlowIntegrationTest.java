@@ -1,0 +1,169 @@
+package com.minibank;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.util.UUID;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.web.servlet.MockMvc;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+@SpringBootTest
+@AutoConfigureMockMvc
+@ActiveProfiles("test")
+class TransferFlowIntegrationTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @Test
+    void transferMovesMoneyAndWritesLedgerEntries() throws Exception {
+        String from = openAccountWithBalance("Alice", "500.00");
+        String to = openAccountWithBalance("Bob", "100.00");
+
+        mockMvc.perform(post("/api/transfers")
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fromAccountId":"%s","toAccountId":"%s","amount":150.00,"description":"rent"}
+                                """.formatted(from, to)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.amount").value(150.00))
+                .andExpect(jsonPath("$.currency").value("EUR"));
+
+        assertThat(balanceOf(from)).isEqualByComparingTo("350.00");
+        assertThat(balanceOf(to)).isEqualByComparingTo("250.00");
+
+        JsonNode fromLedger = getJson("/api/accounts/" + from + "/ledger");
+        assertThat(fromLedger).hasSize(2); // initial deposit credit + transfer debit
+        assertThat(fromLedger.get(0).get("type").asText()).isEqualTo("DEBIT");
+        assertThat(fromLedger.get(0).get("balanceAfter").decimalValue()).isEqualByComparingTo("350.00");
+    }
+
+    @Test
+    void replayingTheSameIdempotencyKeyDoesNotDebitTwice() throws Exception {
+        String from = openAccountWithBalance("Carol", "300.00");
+        String to = openAccountWithBalance("Dan", "0.00");
+        String key = UUID.randomUUID().toString();
+        String body = """
+                {"fromAccountId":"%s","toAccountId":"%s","amount":50.00}
+                """.formatted(from, to);
+
+        String firstId = objectMapper.readTree(mockMvc.perform(post("/api/transfers")
+                                .header("Idempotency-Key", key)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body))
+                        .andExpect(status().isCreated())
+                        .andReturn().getResponse().getContentAsString())
+                .get("id").asText();
+
+        String secondId = objectMapper.readTree(mockMvc.perform(post("/api/transfers")
+                                .header("Idempotency-Key", key)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body))
+                        .andExpect(status().isCreated())
+                        .andReturn().getResponse().getContentAsString())
+                .get("id").asText();
+
+        assertThat(secondId).isEqualTo(firstId);
+        assertThat(balanceOf(from)).isEqualByComparingTo("250.00");
+        assertThat(balanceOf(to)).isEqualByComparingTo("50.00");
+    }
+
+    @Test
+    void transferWithoutEnoughFundsIsRejectedWith422() throws Exception {
+        String from = openAccountWithBalance("Eve", "10.00");
+        String to = openAccountWithBalance("Frank", "0.00");
+
+        mockMvc.perform(post("/api/transfers")
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fromAccountId":"%s","toAccountId":"%s","amount":99.99}
+                                """.formatted(from, to)))
+                .andExpect(status().isUnprocessableEntity());
+
+        assertThat(balanceOf(from)).isEqualByComparingTo("10.00");
+    }
+
+    @Test
+    void transferToUnknownAccountReturns404() throws Exception {
+        String from = openAccountWithBalance("Grace", "100.00");
+
+        mockMvc.perform(post("/api/transfers")
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fromAccountId":"%s","toAccountId":"%s","amount":10.00}
+                                """.formatted(from, UUID.randomUUID())))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void transferWithoutIdempotencyKeyHeaderReturns400() throws Exception {
+        mockMvc.perform(post("/api/transfers")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fromAccountId":"%s","toAccountId":"%s","amount":10.00}
+                                """.formatted(UUID.randomUUID(), UUID.randomUUID())))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void transferToSameAccountIsRejectedWith400() throws Exception {
+        String account = openAccountWithBalance("Heidi", "100.00");
+
+        mockMvc.perform(post("/api/transfers")
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fromAccountId":"%s","toAccountId":"%s","amount":10.00}
+                                """.formatted(account, account)))
+                .andExpect(status().isBadRequest());
+    }
+
+    private String openAccountWithBalance(String holder, String amount) throws Exception {
+        String response = mockMvc.perform(post("/api/accounts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"holderName":"%s","currency":"EUR"}
+                                """.formatted(holder)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        String id = objectMapper.readTree(response).get("id").asText();
+
+        if (new java.math.BigDecimal(amount).signum() > 0) {
+            mockMvc.perform(post("/api/accounts/" + id + "/deposits")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"amount":%s}
+                                    """.formatted(amount)))
+                    .andExpect(status().isOk());
+        }
+        return id;
+    }
+
+    private java.math.BigDecimal balanceOf(String accountId) throws Exception {
+        return getJson("/api/accounts/" + accountId).get("balance").decimalValue();
+    }
+
+    private JsonNode getJson(String url) throws Exception {
+        return objectMapper.readTree(mockMvc.perform(get(url))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString());
+    }
+}
