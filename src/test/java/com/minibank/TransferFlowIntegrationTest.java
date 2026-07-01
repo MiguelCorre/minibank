@@ -1,6 +1,7 @@
 package com.minibank;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.http.HttpHeaders.AUTHORIZATION;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -8,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.util.UUID;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -32,12 +34,35 @@ class TransferFlowIntegrationTest {
     @Autowired
     private ObjectMapper objectMapper;
 
+    private String bearer;
+
+    @BeforeEach
+    void authenticate() throws Exception {
+        String email = "user-" + UUID.randomUUID() + "@test.dev";
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"%s","password":"password123","displayName":"Test User"}
+                                """.formatted(email)))
+                .andExpect(status().isCreated());
+
+        String response = mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"%s","password":"password123"}
+                                """.formatted(email)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        bearer = "Bearer " + objectMapper.readTree(response).get("token").asText();
+    }
+
     @Test
     void transferMovesMoneyAndWritesLedgerEntries() throws Exception {
         String from = openAccountWithBalance("Alice", "500.00");
         String to = openAccountWithBalance("Bob", "100.00");
 
         mockMvc.perform(post("/api/transfers")
+                        .header(AUTHORIZATION, bearer)
                         .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -66,6 +91,7 @@ class TransferFlowIntegrationTest {
                 """.formatted(from, to);
 
         String firstId = objectMapper.readTree(mockMvc.perform(post("/api/transfers")
+                                .header(AUTHORIZATION, bearer)
                                 .header("Idempotency-Key", key)
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(body))
@@ -74,6 +100,7 @@ class TransferFlowIntegrationTest {
                 .get("id").asText();
 
         String secondId = objectMapper.readTree(mockMvc.perform(post("/api/transfers")
+                                .header(AUTHORIZATION, bearer)
                                 .header("Idempotency-Key", key)
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(body))
@@ -92,6 +119,7 @@ class TransferFlowIntegrationTest {
         String to = openAccountWithBalance("Frank", "0.00");
 
         mockMvc.perform(post("/api/transfers")
+                        .header(AUTHORIZATION, bearer)
                         .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -107,6 +135,7 @@ class TransferFlowIntegrationTest {
         String from = openAccountWithBalance("Grace", "100.00");
 
         mockMvc.perform(post("/api/transfers")
+                        .header(AUTHORIZATION, bearer)
                         .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -118,6 +147,7 @@ class TransferFlowIntegrationTest {
     @Test
     void transferWithoutIdempotencyKeyHeaderReturns400() throws Exception {
         mockMvc.perform(post("/api/transfers")
+                        .header(AUTHORIZATION, bearer)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"fromAccountId":"%s","toAccountId":"%s","amount":10.00}
@@ -139,6 +169,7 @@ class TransferFlowIntegrationTest {
         String account = openAccountWithBalance("Heidi", "100.00");
 
         mockMvc.perform(post("/api/transfers")
+                        .header(AUTHORIZATION, bearer)
                         .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -149,6 +180,7 @@ class TransferFlowIntegrationTest {
 
     private String openAccountWithBalance(String holder, String amount) throws Exception {
         String response = mockMvc.perform(post("/api/accounts")
+                        .header(AUTHORIZATION, bearer)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"holderName":"%s","currency":"EUR"}
@@ -159,6 +191,7 @@ class TransferFlowIntegrationTest {
 
         if (new java.math.BigDecimal(amount).signum() > 0) {
             mockMvc.perform(post("/api/accounts/" + id + "/deposits")
+                            .header(AUTHORIZATION, bearer)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
                                     {"amount":%s}
@@ -173,7 +206,7 @@ class TransferFlowIntegrationTest {
     }
 
     private JsonNode getJson(String url) throws Exception {
-        return objectMapper.readTree(mockMvc.perform(get(url))
+        return objectMapper.readTree(mockMvc.perform(get(url).header(AUTHORIZATION, bearer))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString());
     }

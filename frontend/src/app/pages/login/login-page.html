@@ -1,0 +1,42 @@
+<section class="page narrow">
+  <header class="page-header center">
+    <h1>Welcome to mini<strong class="accent">bank</strong></h1>
+    <p class="muted">Sign in to manage accounts and transfers.</p>
+  </header>
+
+  <div class="card form-col">
+    <div class="tabs">
+      <button type="button" [class.active]="mode() === 'login'" (click)="switchMode('login')">Sign in</button>
+      <button type="button" [class.active]="mode() === 'register'" (click)="switchMode('register')">Create account</button>
+    </div>
+
+    <form class="form-col" [formGroup]="form" (ngSubmit)="submit()">
+      @if (mode() === 'register') {
+        <div class="field">
+          <label for="displayName">Display name</label>
+          <input id="displayName" type="text" formControlName="displayName" placeholder="e.g. Miguel" />
+        </div>
+      }
+
+      <div class="field">
+        <label for="email">Email</label>
+        <input id="email" type="email" formControlName="email" placeholder="you@example.com" />
+      </div>
+
+      <div class="field">
+        <label for="password">Password</label>
+        <input id="password" type="password" formControlName="password" placeholder="min. 8 characters" />
+      </div>
+
+      @if (error(); as message) {
+        <p class="alert error">{{ message }}</p>
+      }
+
+      <button class="btn primary" type="submit" [disabled]="submitting()">
+        {{ submitting() ? 'Working…' : mode() === 'login' ? 'Sign in' : 'Create account' }}
+      </button>
+    </form>
+
+    <p class="muted small center">Demo credentials: <code class="mono">demo&#64;minibank.dev / demo1234</code></p>
+  </div>
+</section>

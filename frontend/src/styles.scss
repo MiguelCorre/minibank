@@ -55,6 +55,42 @@ h2 {
 
 .page-header {
   margin-bottom: 1.5rem;
+
+  &.center {
+    text-align: center;
+  }
+}
+
+.center {
+  text-align: center;
+}
+
+.accent {
+  color: var(--primary);
+}
+
+.tabs {
+  display: flex;
+  gap: 0.4rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.75rem;
+
+  button {
+    flex: 1;
+    padding: 0.5rem;
+    border: none;
+    background: transparent;
+    font: inherit;
+    font-weight: 600;
+    color: var(--muted);
+    border-radius: 8px;
+    cursor: pointer;
+
+    &.active {
+      background: #eff6ff;
+      color: var(--primary);
+    }
+  }
 }
 
 .muted {

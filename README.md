@@ -22,8 +22,14 @@ It demonstrates the patterns that matter in payments/banking backends:
 - **RFC 7807 error responses** — a sealed `DomainException` hierarchy is mapped to HTTP
   statuses with an exhaustive pattern-matching `switch` (Java 21): adding a new domain
   error fails compilation until it is mapped.
-- **Modular monolith layout** — `account`, `transfer`, `ledger` and `common` packages with
-  one-way dependencies; each module could be extracted to a service later without redesign.
+- **Stateless JWT security** — register/login issue HS256 tokens via Spring Security's own
+  `JwtEncoder`/`JwtDecoder` (no third-party JWT library); `/api/**` requires a bearer
+  token, passwords are BCrypt-hashed.
+- **Versioned schema with Flyway** — migrations own the database
+  (`src/main/resources/db/migration`), Hibernate runs in `validate` mode.
+- **Modular monolith layout** — `account`, `transfer`, `ledger`, `auth` and `common`
+  packages with one-way dependencies; each module could be extracted to a service later
+  without redesign.
 - **Java 21 features** — records for DTOs, sealed classes, pattern matching for switch,
   and virtual threads enabled (`spring.threads.virtual.enabled=true`).
 
@@ -49,16 +55,27 @@ docker compose up -d
 DB_URL=jdbc:postgresql://localhost:5433/minibank ./mvnw spring-boot:run
 ```
 
-Connection settings are overridable via `DB_URL`, `DB_USER` and `DB_PASSWORD`. The app
-starts on `http://localhost:8080` and seeds two demo accounts on first run (ids are logged
-at startup).
+Connection settings are overridable via `DB_URL`, `DB_USER` and `DB_PASSWORD`; the JWT
+signing key via `JWT_SECRET`. The app starts on `http://localhost:8080` and seeds a demo
+user (`demo@minibank.dev` / `demo1234`) plus two demo accounts on first run.
+
+### Single-jar deployment
+
+```bash
+./mvnw package -Pwith-frontend
+java -jar target/minibank-0.1.0.jar
+```
+
+The profile builds the Angular app and embeds it under `/static`; Spring serves the SPA
+(with an index.html fallback for client-side routes) and the API from one origin.
 
 ## Frontend
 
-An **Angular 22** SPA lives in [`frontend/`](frontend) — accounts dashboard, account
-detail with ledger, deposits, and transfers with a client-generated `Idempotency-Key`
-(kept across retries, renewed after success). Standalone components, signals, zoneless
-change detection and the built-in control flow.
+An **Angular 22** SPA lives in [`frontend/`](frontend) — login/registration, accounts
+dashboard, account detail with ledger, deposits, and transfers with a client-generated
+`Idempotency-Key` (kept across retries, renewed after success). Standalone components,
+signals, zoneless change detection, a functional HTTP interceptor for the bearer token
+and route guards for the session.
 
 ```bash
 cd frontend
@@ -68,8 +85,14 @@ npm start        # dev server on :4200, /api proxied to the backend on :8080
 
 ## API
 
+All `/api/**` endpoints except `/api/auth/register` and `/api/auth/login` require an
+`Authorization: Bearer <token>` header.
+
 | Method | Path                              | Description                                  |
 |--------|-----------------------------------|----------------------------------------------|
+| POST   | `/api/auth/register`              | Create a user (`email`, `password`, `displayName`) |
+| POST   | `/api/auth/login`                 | Exchange credentials for a JWT               |
+| GET    | `/api/auth/me`                    | Current user from the token                  |
 | POST   | `/api/accounts`                   | Open an account (`holderName`, `currency`)   |
 | GET    | `/api/accounts`                   | List accounts, newest first                  |
 | GET    | `/api/accounts/{id}`              | Account details and balance                  |
@@ -123,5 +146,6 @@ missing idempotency header (400).
   all use PostgreSQL 17, so pessimistic locking and constraint behaviour are exercised on
   the same engine that runs in production. CI (GitHub Actions) runs the full suite on
   every push.
-- **No authentication** by design — the focus is the transactional core. Spring Security
-  with JWT would sit in front of the controllers without touching the domain.
+- **JWT in localStorage** on the frontend keeps the demo simple; a production build would
+  weigh httpOnly cookies + CSRF against it. Tokens expire after 1h and the UI redirects to
+  the login page on 401.

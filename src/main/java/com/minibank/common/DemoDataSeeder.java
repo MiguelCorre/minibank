@@ -10,6 +10,8 @@ import org.springframework.stereotype.Component;
 
 import com.minibank.account.AccountRepository;
 import com.minibank.account.AccountService;
+import com.minibank.auth.AuthService;
+import com.minibank.auth.UserRepository;
 
 @Component
 @Profile("!test")
@@ -19,14 +21,23 @@ class DemoDataSeeder implements CommandLineRunner {
 
     private final AccountService accountService;
     private final AccountRepository accounts;
+    private final AuthService authService;
+    private final UserRepository users;
 
-    DemoDataSeeder(AccountService accountService, AccountRepository accounts) {
+    DemoDataSeeder(AccountService accountService, AccountRepository accounts,
+                   AuthService authService, UserRepository users) {
         this.accountService = accountService;
         this.accounts = accounts;
+        this.authService = authService;
+        this.users = users;
     }
 
     @Override
     public void run(String... args) {
+        if (users.count() == 0) {
+            authService.register("demo@minibank.dev", "demo1234", "Demo User");
+            log.info("Seeded demo user: demo@minibank.dev / demo1234");
+        }
         if (accounts.count() > 0) {
             return; // database already seeded (persistent PostgreSQL)
         }

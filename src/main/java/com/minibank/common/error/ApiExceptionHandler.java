@@ -25,6 +25,8 @@ class ApiExceptionHandler {
             case InsufficientFundsException ignored -> HttpStatus.UNPROCESSABLE_ENTITY;
             case CurrencyMismatchException ignored -> HttpStatus.UNPROCESSABLE_ENTITY;
             case InvalidTransferException ignored -> HttpStatus.BAD_REQUEST;
+            case EmailAlreadyUsedException ignored -> HttpStatus.CONFLICT;
+            case InvalidCredentialsException ignored -> HttpStatus.UNAUTHORIZED;
         };
         return ProblemDetail.forStatusAndDetail(status, ex.getMessage());
     }

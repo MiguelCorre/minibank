@@ -29,6 +29,22 @@
   .links {
     display: flex;
     gap: 0.35rem;
+    align-items: center;
+
+    .user-chip {
+      margin-left: 0.75rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--muted);
+      padding: 0.3rem 0.7rem;
+      background: var(--bg);
+      border-radius: 999px;
+    }
+
+    .small-btn {
+      padding: 0.3rem 0.8rem;
+      font-size: 0.82rem;
+    }
 
     a {
       text-decoration: none;
