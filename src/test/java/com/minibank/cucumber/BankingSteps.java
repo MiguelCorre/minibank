@@ -38,6 +38,7 @@ public class BankingSteps {
 
     private final Map<String, String> passwordsByEmail = new HashMap<>();
     private final Map<String, String> accountIdsByAlias = new HashMap<>();
+    private final Map<String, String> ownerTokenByAlias = new HashMap<>();
 
     private String accessToken;
     private String refreshToken;
@@ -150,12 +151,30 @@ public class BankingSteps {
                         """.formatted(alias, currency)));
         assertThat(lastStatus).isEqualTo(201);
         accountIdsByAlias.put(alias, lastBody.get("id").asText());
+        ownerTokenByAlias.put(alias, accessToken);
+    }
+
+    @Given("another customer has an account for {string} in {word} with balance {bigdecimal}")
+    public void anotherCustomerAccount(String alias, String currency, BigDecimal balance) throws Exception {
+        String savedAccess = accessToken;
+        String savedRefresh = refreshToken;
+        authenticatedSession();
+        accountWithBalance(alias, currency, balance);
+        accessToken = savedAccess;
+        refreshToken = savedRefresh;
+    }
+
+    @When("the account of {string} is requested")
+    public void accountRequested(String alias) throws Exception {
+        exchange(get("/api/accounts/" + accountId(alias)).header(AUTHORIZATION, bearer()));
     }
 
     @Given("an account for {string} in {word} with balance {bigdecimal}")
     public void accountWithBalance(String alias, String currency, BigDecimal balance) throws Exception {
         accountOpened(alias, currency);
-        deposited(balance, alias);
+        if (balance.signum() > 0) {
+            deposited(balance, alias);
+        }
     }
 
     @When("{bigdecimal} is deposited into the account of {string}")
@@ -171,7 +190,9 @@ public class BankingSteps {
 
     @Then("the account of {string} has balance {bigdecimal}")
     public void accountHasBalance(String alias, BigDecimal expected) throws Exception {
-        exchange(get("/api/accounts/" + accountId(alias)).header(AUTHORIZATION, bearer()));
+        // read as the owner: balances of other customers' accounts are private
+        exchange(get("/api/accounts/" + accountId(alias))
+                .header(AUTHORIZATION, "Bearer " + ownerTokenByAlias.get(alias)));
         assertThat(lastStatus).isEqualTo(200);
         assertThat(lastBody.get("balance").decimalValue()).isEqualByComparingTo(expected);
     }
@@ -181,6 +202,13 @@ public class BankingSteps {
         exchange(get("/api/accounts").header(AUTHORIZATION, bearer()));
         assertThat(lastStatus).isEqualTo(200);
         assertThat(lastBody.findValuesAsText("holderName")).contains(alias);
+    }
+
+    @Then("the accounts list does not contain {string}")
+    public void accountsListDoesNotContain(String alias) throws Exception {
+        exchange(get("/api/accounts").header(AUTHORIZATION, bearer()));
+        assertThat(lastStatus).isEqualTo(200);
+        assertThat(lastBody.findValuesAsText("holderName")).doesNotContain(alias);
     }
 
     @Then("the ledger of {string} shows a {word} of {bigdecimal}")

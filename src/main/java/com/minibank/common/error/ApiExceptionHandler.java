@@ -24,6 +24,7 @@ class ApiExceptionHandler {
             case TransferNotFoundException ignored -> HttpStatus.NOT_FOUND;
             case InsufficientFundsException ignored -> HttpStatus.UNPROCESSABLE_ENTITY;
             case CurrencyMismatchException ignored -> HttpStatus.UNPROCESSABLE_ENTITY;
+            case DailyTransferLimitExceededException ignored -> HttpStatus.UNPROCESSABLE_ENTITY;
             case InvalidTransferException ignored -> HttpStatus.BAD_REQUEST;
             case EmailAlreadyUsedException ignored -> HttpStatus.CONFLICT;
             case InvalidCredentialsException ignored -> HttpStatus.UNAUTHORIZED;

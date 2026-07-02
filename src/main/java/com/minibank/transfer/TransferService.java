@@ -1,8 +1,11 @@
 package com.minibank.transfer;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -10,6 +13,7 @@ import com.minibank.account.Account;
 import com.minibank.account.AccountRepository;
 import com.minibank.common.error.AccountNotFoundException;
 import com.minibank.common.error.CurrencyMismatchException;
+import com.minibank.common.error.DailyTransferLimitExceededException;
 import com.minibank.common.error.InvalidTransferException;
 import com.minibank.common.error.TransferNotFoundException;
 import com.minibank.ledger.LedgerEntry;
@@ -21,21 +25,24 @@ public class TransferService {
     private final TransferRepository transfers;
     private final AccountRepository accounts;
     private final LedgerRepository ledger;
+    private final BigDecimal dailyLimit;
 
-    public TransferService(TransferRepository transfers, AccountRepository accounts, LedgerRepository ledger) {
+    public TransferService(TransferRepository transfers, AccountRepository accounts, LedgerRepository ledger,
+                           @Value("${minibank.limits.daily-transfer}") BigDecimal dailyLimit) {
         this.transfers = transfers;
         this.accounts = accounts;
         this.ledger = ledger;
+        this.dailyLimit = dailyLimit;
     }
 
     /**
-     * Executes a transfer exactly once per idempotency key. A replay with a
-     * key already processed returns the original transfer without touching
-     * balances; a concurrent duplicate is rejected by the unique constraint
-     * on the key and surfaces as 409.
+     * Executes a transfer exactly once per idempotency key. The caller must
+     * own the source account (a foreign account 404s like a missing one);
+     * the destination may belong to any customer. Outgoing transfers are
+     * capped per account per UTC day.
      */
     @Transactional
-    public Transfer transfer(String idempotencyKey, UUID fromId, UUID toId,
+    public Transfer transfer(UUID callerId, String idempotencyKey, UUID fromId, UUID toId,
                              BigDecimal amount, String description) {
         var existing = transfers.findByIdempotencyKey(idempotencyKey);
         if (existing.isPresent()) {
@@ -55,8 +62,17 @@ public class TransferService {
         Account from = first.getId().equals(fromId) ? first : second;
         Account to = from == first ? second : first;
 
+        if (!from.isOwnedBy(callerId)) {
+            throw new AccountNotFoundException(fromId);
+        }
         if (!from.getCurrency().equals(to.getCurrency())) {
             throw new CurrencyMismatchException(from.getCurrency(), to.getCurrency());
+        }
+
+        Instant startOfDay = Instant.now().truncatedTo(ChronoUnit.DAYS);
+        BigDecimal spentToday = transfers.sumOutgoingSince(fromId, startOfDay);
+        if (spentToday.add(amount).compareTo(dailyLimit) > 0) {
+            throw new DailyTransferLimitExceededException(dailyLimit);
         }
 
         from.debit(amount);
@@ -70,9 +86,21 @@ public class TransferService {
     }
 
     @Transactional(readOnly = true)
-    public Transfer get(UUID id) {
-        return transfers.findById(id)
+    public Transfer get(UUID id, UUID callerId) {
+        Transfer transfer = transfers.findById(id)
                 .orElseThrow(() -> new TransferNotFoundException(id));
+        boolean participant = isOwnedBy(transfer.getFromAccountId(), callerId)
+                || isOwnedBy(transfer.getToAccountId(), callerId);
+        if (!participant) {
+            throw new TransferNotFoundException(id);
+        }
+        return transfer;
+    }
+
+    private boolean isOwnedBy(UUID accountId, UUID userId) {
+        return accounts.findById(accountId)
+                .map(account -> account.isOwnedBy(userId))
+                .orElse(false);
     }
 
     private Account lockAccount(UUID id) {

@@ -15,37 +15,46 @@ import org.springframework.web.bind.annotation.RestController;
 import com.minibank.account.dto.AccountResponse;
 import com.minibank.account.dto.DepositRequest;
 import com.minibank.account.dto.OpenAccountRequest;
+import com.minibank.auth.CurrentUserService;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/accounts")
+@Tag(name = "Accounts", description = "Open accounts, deposit funds and follow balances")
 class AccountController {
 
     private final AccountService accountService;
+    private final CurrentUserService currentUser;
 
-    AccountController(AccountService accountService) {
+    AccountController(AccountService accountService, CurrentUserService currentUser) {
         this.accountService = accountService;
+        this.currentUser = currentUser;
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     AccountResponse open(@Valid @RequestBody OpenAccountRequest request) {
-        return AccountResponse.from(accountService.open(request.holderName(), request.currency()));
+        return AccountResponse.from(
+                accountService.open(currentUser.requireCurrentUserId(), request.holderName(), request.currency()));
     }
 
     @GetMapping
     List<AccountResponse> list() {
-        return accountService.list().stream().map(AccountResponse::from).toList();
+        return accountService.list(currentUser.requireCurrentUserId()).stream()
+                .map(AccountResponse::from)
+                .toList();
     }
 
     @GetMapping("/{id}")
     AccountResponse get(@PathVariable UUID id) {
-        return AccountResponse.from(accountService.get(id));
+        return AccountResponse.from(accountService.get(id, currentUser.requireCurrentUserId()));
     }
 
     @PostMapping("/{id}/deposits")
     AccountResponse deposit(@PathVariable UUID id, @Valid @RequestBody DepositRequest request) {
-        return AccountResponse.from(accountService.deposit(id, request.amount()));
+        return AccountResponse.from(
+                accountService.deposit(id, request.amount(), currentUser.requireCurrentUserId()));
     }
 }

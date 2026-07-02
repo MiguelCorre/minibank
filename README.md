@@ -29,6 +29,13 @@ It demonstrates the patterns that matter in payments/banking backends:
   with single-use rotation; presenting an already-rotated token is treated as theft and
   revokes the user's whole token family. Failed logins are rate-limited (5 per 15 min,
   then `429`).
+- **Resource-level authorization** — accounts belong to the customer who opened them;
+  someone else's account behaves exactly like a missing one (`404`, no existence leak).
+  Anyone may still be the *destination* of a transfer, like a regular bank payment.
+- **Daily transfer limits** — outgoing transfers are capped per account per UTC day
+  (configurable via `DAILY_TRANSFER_LIMIT`, default 1000.00); exceeding it returns `422`.
+- **OpenAPI documentation** — springdoc generates the spec from the code; Swagger UI at
+  `/swagger-ui.html` with the bearer scheme wired in.
 - **Versioned schema with Flyway** — migrations own the database
   (`src/main/resources/db/migration`), Hibernate runs in `validate` mode.
 - **Modular monolith layout** — `account`, `transfer`, `ledger`, `auth` and `common`
@@ -105,8 +112,12 @@ npm start        # dev server on :4200, /api proxied to the backend on :8080
 
 ## API
 
-All `/api/**` endpoints except `/api/auth/register` and `/api/auth/login` require an
-`Authorization: Bearer <token>` header.
+Interactive documentation: **Swagger UI** at `http://localhost:8080/swagger-ui.html`
+(OpenAPI spec at `/v3/api-docs`).
+
+All `/api/**` endpoints except the anonymous auth endpoints require an
+`Authorization: Bearer <token>` header. Account resources are scoped to their owner —
+other customers' accounts return `404`.
 
 | Method | Path                              | Description                                  |
 |--------|-----------------------------------|----------------------------------------------|

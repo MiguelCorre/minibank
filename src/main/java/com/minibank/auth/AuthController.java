@@ -17,10 +17,12 @@ import com.minibank.auth.dto.RefreshRequest;
 import com.minibank.auth.dto.RegisterRequest;
 import com.minibank.auth.dto.UserInfo;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/auth")
+@Tag(name = "Authentication", description = "Registration, login and refresh-token rotation")
 class AuthController {
 
     private final AuthService authService;

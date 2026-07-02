@@ -34,17 +34,18 @@ class DemoDataSeeder implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        if (users.count() == 0) {
-            authService.register("demo@minibank.dev", "demo1234", "Demo User");
-            log.info("Seeded demo user: demo@minibank.dev / demo1234");
-        }
+        var demo = users.findByEmail("demo@minibank.dev")
+                .orElseGet(() -> {
+                    log.info("Seeding demo user: demo@minibank.dev / demo1234");
+                    return authService.register("demo@minibank.dev", "demo1234", "Demo User");
+                });
         if (accounts.count() > 0) {
             return; // database already seeded (persistent PostgreSQL)
         }
-        var alice = accountService.open("Alice Martins", "EUR");
-        accountService.deposit(alice.getId(), new BigDecimal("1000.00"));
-        var bruno = accountService.open("Bruno Costa", "EUR");
-        accountService.deposit(bruno.getId(), new BigDecimal("250.00"));
+        var alice = accountService.open(demo.getId(), "Alice Martins", "EUR");
+        accountService.deposit(alice.getId(), new BigDecimal("1000.00"), demo.getId());
+        var bruno = accountService.open(demo.getId(), "Bruno Costa", "EUR");
+        accountService.deposit(bruno.getId(), new BigDecimal("250.00"), demo.getId());
         log.info("Seeded demo accounts: alice={} bruno={}", alice.getId(), bruno.getId());
     }
 }

@@ -19,6 +19,9 @@ minibank:
   security:
     # HS256 needs >= 256 bits; override in real deployments
     jwt-secret: ${JWT_SECRET:dev-only-secret-change-me-0123456789abcdef}
+  limits:
+    # max outgoing transfers per account per UTC day
+    daily-transfer: ${DAILY_TRANSFER_LIMIT:1000.00}
 
 management:
   endpoints:

@@ -21,6 +21,9 @@ public class Account {
     @Id
     private UUID id;
 
+    @Column(nullable = false)
+    private UUID ownerId;
+
     @Column(nullable = false, unique = true, length = 34)
     private String accountNumber;
 
@@ -43,8 +46,9 @@ public class Account {
         // JPA
     }
 
-    private Account(UUID id, String accountNumber, String holderName, String currency) {
+    private Account(UUID id, UUID ownerId, String accountNumber, String holderName, String currency) {
         this.id = id;
+        this.ownerId = ownerId;
         this.accountNumber = accountNumber;
         this.holderName = holderName;
         this.currency = currency;
@@ -52,8 +56,12 @@ public class Account {
         this.createdAt = Instant.now();
     }
 
-    public static Account open(String holderName, String currency) {
-        return new Account(UUID.randomUUID(), generateAccountNumber(), holderName, currency);
+    public static Account open(UUID ownerId, String holderName, String currency) {
+        return new Account(UUID.randomUUID(), ownerId, generateAccountNumber(), holderName, currency);
+    }
+
+    public boolean isOwnedBy(UUID userId) {
+        return ownerId.equals(userId);
     }
 
     // Demo-only stand-in for a real IBAN allocation service
@@ -75,6 +83,10 @@ public class Account {
 
     public UUID getId() {
         return id;
+    }
+
+    public UUID getOwnerId() {
+        return ownerId;
     }
 
     public String getAccountNumber() {
