@@ -11,7 +11,8 @@ primary_region = "cdg"
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = "stop"
+  # suspend resumes in seconds; a full stop means ~2 min of JVM cold start
+  auto_stop_machines = "suspend"
   auto_start_machines = true
   min_machines_running = 0
 
@@ -22,8 +23,11 @@ primary_region = "cdg"
     path = "/actuator/health"
     interval = "30s"
     timeout = "5s"
-    grace_period = "20s"
+    # JVM cold start on shared-cpu is slow; give it room
+    grace_period = "120s"
 
 [[vm]]
-  size = "shared-cpu-1x"
+  # 1x shared CPU starves the JVM at boot: PostgreSQL times out the
+  # half-open connections (EOF during auth) and startup crash-loops
+  size = "shared-cpu-2x"
   memory = "1gb"

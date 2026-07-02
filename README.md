@@ -2,6 +2,10 @@
 
 [![CI](https://github.com/MiguelCorre/minibank/actions/workflows/ci.yml/badge.svg)](https://github.com/MiguelCorre/minibank/actions/workflows/ci.yml)
 
+**Live demo:** [minibank.fly.dev](https://minibank.fly.dev) — sign in with
+`demo@minibank.dev` / `demo1234` (the machine suspends when idle; the first request may
+take a few seconds).
+
 A small but production-minded **modular monolith** for core banking flows: accounts, deposits,
 and **idempotent money transfers** with a double-entry ledger.
 
