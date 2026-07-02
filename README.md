@@ -2,10 +2,6 @@
 
 [![CI](https://github.com/MiguelCorre/minibank/actions/workflows/ci.yml/badge.svg)](https://github.com/MiguelCorre/minibank/actions/workflows/ci.yml)
 
-**Live demo:** [minibank.fly.dev](https://minibank.fly.dev) — sign in with
-`demo@minibank.dev` / `demo1234` (the machine suspends when idle; the first request may
-take a few seconds).
-
 A small but production-minded **modular monolith** for core banking flows: accounts, deposits,
 and **idempotent money transfers** with a double-entry ledger.
 
@@ -160,7 +156,16 @@ Tests run against a **real PostgreSQL via Testcontainers 2** (Docker required) �
 `@ServiceConnection` container replaces the datasource automatically, so what is tested is
 what runs in production. Note: Testcontainers 1.x cannot talk to Docker Engine 29+
 (minimum API version raised to 1.44), which is why this project pins Testcontainers 2.x
-over the version managed by the Spring Boot BOM. Integration tests (`@SpringBootTest` + MockMvc) cover the happy path, idempotent replay,
+over the version managed by the Spring Boot BOM.
+
+### BDD acceptance tests (Cucumber)
+
+Business-readable specifications live in
+[`src/test/resources/features`](src/test/resources/features) — authentication (including
+refresh-token rotation and login rate limiting), accounts, and transfers (idempotent
+replay, insufficient funds, cross-currency rejection). They boot the full application via
+`@CucumberContextConfiguration` and drive it through MockMvc; an HTML report is written to
+`target/cucumber-report.html` on every run. Integration tests (`@SpringBootTest` + MockMvc) cover the happy path, idempotent replay,
 insufficient funds (422), unknown accounts (404), same-account transfers (400) and the
 missing idempotency header (400).
 
