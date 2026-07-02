@@ -38,6 +38,14 @@ export interface TransferRequest {
   description?: string;
 }
 
+export interface Page<T> {
+  content: T[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
 /** RFC 7807 problem detail as produced by the backend. */
 export interface ProblemDetail {
   status: number;

@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
-import { Account, LedgerEntry, OpenAccountRequest, Transfer, TransferRequest } from './models';
+import { Account, LedgerEntry, OpenAccountRequest, Page, Transfer, TransferRequest } from './models';
 
 @Injectable({ providedIn: 'root' })
 export class BankApi {
@@ -24,13 +24,20 @@ export class BankApi {
     return this.http.post<Account>(`/api/accounts/${accountId}/deposits`, { amount });
   }
 
-  ledger(accountId: string): Observable<LedgerEntry[]> {
-    return this.http.get<LedgerEntry[]>(`/api/accounts/${accountId}/ledger`);
+  ledger(accountId: string, page = 0, size = 20): Observable<Page<LedgerEntry>> {
+    return this.http.get<Page<LedgerEntry>>(
+      `/api/accounts/${accountId}/ledger?page=${page}&size=${size}`);
   }
 
   transfer(idempotencyKey: string, request: TransferRequest): Observable<Transfer> {
     return this.http.post<Transfer>('/api/transfers', request, {
       headers: { 'Idempotency-Key': idempotencyKey }
     });
+  }
+
+  statement(accountId: string, from: string, to: string, format: 'csv' | 'pdf'): Observable<Blob> {
+    return this.http.get(
+      `/api/accounts/${accountId}/statement?from=${from}&to=${to}&format=${format}`,
+      { responseType: 'blob' });
   }
 }

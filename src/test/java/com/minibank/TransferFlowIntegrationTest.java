@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.http.HttpHeaders.AUTHORIZATION;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -75,10 +76,61 @@ class TransferFlowIntegrationTest {
         assertThat(balanceOf(from)).isEqualByComparingTo("350.00");
         assertThat(balanceOf(to)).isEqualByComparingTo("250.00");
 
-        JsonNode fromLedger = getJson("/api/accounts/" + from + "/ledger");
+        JsonNode fromLedger = getJson("/api/accounts/" + from + "/ledger").get("content");
         assertThat(fromLedger).hasSize(2); // initial deposit credit + transfer debit
         assertThat(fromLedger.get(0).get("type").asText()).isEqualTo("DEBIT");
         assertThat(fromLedger.get(0).get("balanceAfter").decimalValue()).isEqualByComparingTo("350.00");
+    }
+
+    @Test
+    void ledgerIsPaginated() throws Exception {
+        String account = openAccountWithBalance("Paged", "10.00");
+        for (int i = 0; i < 3; i++) {
+            mockMvc.perform(post("/api/accounts/" + account + "/deposits")
+                            .header(AUTHORIZATION, bearer)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"amount":5.00}
+                                    """))
+                    .andExpect(status().isOk());
+        }
+
+        JsonNode page = getJson("/api/accounts/" + account + "/ledger?page=0&size=2");
+        assertThat(page.get("content")).hasSize(2);
+        assertThat(page.get("totalElements").asLong()).isEqualTo(4); // opening deposit + 3
+        assertThat(page.get("totalPages").asInt()).isEqualTo(2);
+    }
+
+    @Test
+    void statementIsGeneratedAsCsvAndPdf() throws Exception {
+        String from = openAccountWithBalance("Stmt", "300.00");
+        String to = openAccountWithBalance("Peer", "0.00");
+        mockMvc.perform(post("/api/transfers")
+                        .header(AUTHORIZATION, bearer)
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fromAccountId":"%s","toAccountId":"%s","amount":120.00}
+                                """.formatted(from, to)))
+                .andExpect(status().isCreated());
+
+        String today = java.time.LocalDate.now().toString();
+        String csv = mockMvc.perform(get("/api/accounts/" + from + "/statement?from=" + today
+                                + "&to=" + today + "&format=csv")
+                        .header(AUTHORIZATION, bearer))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "text/csv"))
+                .andReturn().getResponse().getContentAsString();
+        assertThat(csv).startsWith("timestamp_utc,type,amount,balance_after,transfer_id");
+        assertThat(csv).contains("CREDIT,300.00").contains("DEBIT,-120.00,180.00");
+
+        byte[] pdf = mockMvc.perform(get("/api/accounts/" + from + "/statement?from=" + today
+                                + "&to=" + today + "&format=pdf")
+                        .header(AUTHORIZATION, bearer))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "application/pdf"))
+                .andReturn().getResponse().getContentAsByteArray();
+        assertThat(new String(pdf, 0, 5)).isEqualTo("%PDF-");
     }
 
     @Test

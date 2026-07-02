@@ -15,3 +15,8 @@ Feature: Account management
     When 250.00 is deposited into the account of "Bruno Costa"
     Then the account of "Bruno Costa" has balance 250.00
     And the ledger of "Bruno Costa" shows a CREDIT of 250.00
+
+  Scenario: A CSV statement lists the movements of the period
+    Given an account for "Carla Nunes" in EUR with balance 300.00
+    When the CSV statement of "Carla Nunes" for today is requested
+    Then the statement has 1 movement line

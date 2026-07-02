@@ -229,6 +229,17 @@ h2 {
   flex-wrap: wrap;
 }
 
+.section-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+
+  .actions {
+    gap: 0.5rem;
+  }
+}
+
 /* Buttons */
 .btn {
   padding: 0.55rem 1.1rem;

@@ -1,0 +1,4 @@
+minibank:
+  outbox:
+    # tests trigger the relay explicitly; keep the scheduler out of the way
+    relay-interval: 24h

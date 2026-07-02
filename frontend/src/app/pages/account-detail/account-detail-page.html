@@ -28,7 +28,13 @@
       </form>
     </div>
 
-    <h2>Ledger</h2>
+    <div class="section-row">
+      <h2>Ledger</h2>
+      <div class="actions">
+        <button class="btn ghost" type="button" (click)="downloadStatement('csv')">Statement CSV</button>
+        <button class="btn ghost" type="button" (click)="downloadStatement('pdf')">Statement PDF</button>
+      </div>
+    </div>
     @if (ledger().length === 0) {
       <div class="card empty">No movements yet.</div>
     } @else {

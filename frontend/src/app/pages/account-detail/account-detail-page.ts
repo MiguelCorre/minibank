@@ -36,9 +36,23 @@ export class AccountDetailPage {
       next: account => this.account.set(account),
       error: err => this.error.set(problemMessage(err, 'Account not found'))
     });
-    this.api.ledger(id).subscribe({
-      next: entries => this.ledger.set(entries),
+    this.api.ledger(id, 0, 50).subscribe({
+      next: page => this.ledger.set(page.content),
       error: () => this.ledger.set([])
+    });
+  }
+
+  downloadStatement(format: 'csv' | 'pdf'): void {
+    const now = new Date();
+    const from = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+    const to = now.toISOString().slice(0, 10);
+    this.api.statement(this.id(), from, to, format).subscribe(blob => {
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `statement-${from}-${to}.${format}`;
+      anchor.click();
+      URL.revokeObjectURL(url);
     });
   }
 

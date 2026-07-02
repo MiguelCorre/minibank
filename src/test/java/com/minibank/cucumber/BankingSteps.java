@@ -46,6 +46,7 @@ public class BankingSteps {
 
     private int lastStatus;
     private JsonNode lastBody;
+    private String lastRawResponse;
 
     private String lastTransferKey;
     private String lastTransferPayload;
@@ -169,6 +170,24 @@ public class BankingSteps {
         exchange(get("/api/accounts/" + accountId(alias)).header(AUTHORIZATION, bearer()));
     }
 
+    @When("the CSV statement of {string} for today is requested")
+    public void csvStatementRequested(String alias) throws Exception {
+        String today = java.time.LocalDate.now().toString();
+        MockHttpServletResponse response = mockMvc.perform(get("/api/accounts/" + accountId(alias)
+                        + "/statement?from=" + today + "&to=" + today + "&format=csv")
+                        .header(AUTHORIZATION, bearer()))
+                .andReturn().getResponse();
+        lastStatus = response.getStatus();
+        lastRawResponse = response.getContentAsString();
+        assertThat(lastStatus).isEqualTo(200);
+    }
+
+    @Then("the statement has {int} movement line(s)")
+    public void statementHasLines(int lines) {
+        assertThat(lastRawResponse).startsWith("timestamp_utc,");
+        assertThat(lastRawResponse.strip().split("\n")).hasSize(lines + 1); // header + movements
+    }
+
     @Given("an account for {string} in {word} with balance {bigdecimal}")
     public void accountWithBalance(String alias, String currency, BigDecimal balance) throws Exception {
         accountOpened(alias, currency);
@@ -216,7 +235,7 @@ public class BankingSteps {
         exchange(get("/api/accounts/" + accountId(alias) + "/ledger").header(AUTHORIZATION, bearer()));
         assertThat(lastStatus).isEqualTo(200);
         boolean found = false;
-        for (JsonNode entry : lastBody) {
+        for (JsonNode entry : lastBody.get("content")) {
             if (entry.get("type").asText().equals(type)
                     && entry.get("amount").decimalValue().compareTo(amount) == 0) {
                 found = true;

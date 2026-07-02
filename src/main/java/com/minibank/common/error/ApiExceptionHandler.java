@@ -44,6 +44,11 @@ class ApiExceptionHandler {
         return problem;
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    ProblemDetail onIllegalArgument(IllegalArgumentException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
     @ExceptionHandler(MissingRequestHeaderException.class)
     ProblemDetail onMissingHeader(MissingRequestHeaderException ex) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,

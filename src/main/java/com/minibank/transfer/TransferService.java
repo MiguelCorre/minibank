@@ -6,6 +6,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,13 +26,16 @@ public class TransferService {
     private final TransferRepository transfers;
     private final AccountRepository accounts;
     private final LedgerRepository ledger;
+    private final ApplicationEventPublisher events;
     private final BigDecimal dailyLimit;
 
     public TransferService(TransferRepository transfers, AccountRepository accounts, LedgerRepository ledger,
+                           ApplicationEventPublisher events,
                            @Value("${minibank.limits.daily-transfer}") BigDecimal dailyLimit) {
         this.transfers = transfers;
         this.accounts = accounts;
         this.ledger = ledger;
+        this.events = events;
         this.dailyLimit = dailyLimit;
     }
 
@@ -82,6 +86,8 @@ public class TransferService {
                 Transfer.create(idempotencyKey, fromId, toId, amount, from.getCurrency(), description));
         ledger.save(LedgerEntry.debit(from.getId(), transfer.getId(), amount, from.getBalance()));
         ledger.save(LedgerEntry.credit(to.getId(), transfer.getId(), amount, to.getBalance()));
+        events.publishEvent(new TransferCompleted(
+                transfer.getId(), fromId, toId, amount, from.getCurrency()));
         return transfer;
     }
 

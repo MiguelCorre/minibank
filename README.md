@@ -36,6 +36,11 @@ It demonstrates the patterns that matter in payments/banking backends:
   (configurable via `DAILY_TRANSFER_LIMIT`, default 1000.00); exceeding it returns `422`.
 - **OpenAPI documentation** — springdoc generates the spec from the code; Swagger UI at
   `/swagger-ui.html` with the bearer scheme wired in.
+- **Transactional outbox** — `TransferCompleted` domain events are stored in the same
+  transaction as the transfer; a scheduled relay publishes them with at-least-once
+  semantics (a log line here — a Kafka producer in production, same pattern).
+- **Statements** — per-period account statements as **CSV or PDF** (OpenPDF) with opening
+  and closing balances; the ledger endpoint is paginated.
 - **Versioned schema with Flyway** — migrations own the database
   (`src/main/resources/db/migration`), Hibernate runs in `validate` mode.
 - **Modular monolith layout** — `account`, `transfer`, `ledger`, `auth` and `common`
@@ -130,7 +135,8 @@ other customers' accounts return `404`.
 | GET    | `/api/accounts`                   | List accounts, newest first                  |
 | GET    | `/api/accounts/{id}`              | Account details and balance                  |
 | POST   | `/api/accounts/{id}/deposits`     | Deposit funds (`amount`)                     |
-| GET    | `/api/accounts/{id}/ledger`       | Ledger entries, newest first                 |
+| GET    | `/api/accounts/{id}/ledger`       | Ledger entries, newest first (paginated: `page`, `size`) |
+| GET    | `/api/accounts/{id}/statement`    | CSV/PDF statement (`from`, `to`, `format`)   |
 | POST   | `/api/transfers`                  | Transfer (requires `Idempotency-Key` header) |
 | GET    | `/api/transfers/{id}`             | Transfer details                             |
 | GET    | `/actuator/health`                | Health check                                 |
