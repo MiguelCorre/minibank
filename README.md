@@ -188,6 +188,10 @@ missing idempotency header (400).
 
 ## Design notes
 
+The reasoning behind every non-obvious choice is recorded in
+[docs/DECISIONS.md](docs/DECISIONS.md); agent/contributor operational notes live in
+[CLAUDE.md](CLAUDE.md).
+
 - **Money** is `BigDecimal` with scale 2 and `DECIMAL(19,2)` columns. Currency is per
   account; cross-currency transfers are rejected (`422`) — FX would be its own module.
 - **PostgreSQL everywhere** — the app, the Compose service and the Testcontainers tests
