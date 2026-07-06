@@ -9,9 +9,13 @@ Portfolio project for **Miguel** (GitHub `MiguelCorre`), Senior Java Developer t
 freelance work in banking/payments. The repo demonstrates a production-minded banking
 core: modular monolith, real-database testing, JWT security, BDD, migrations, outbox.
 
-**Owner's standing rule: always prefer upgrading the lagging dependency to the latest
-version over adding compatibility shims or downgrades.** Verify latest versions against
-Maven Central / npm metadata, not from memory.
+**Owner's standing rules:**
+1. Always prefer upgrading the lagging dependency to the latest version over adding
+   compatibility shims or downgrades. Verify latest versions against Maven Central /
+   npm metadata, not from memory.
+2. **Every new feature must update all documentation in the same commit**: README.md
+   (feature list + API table), this file (state, pins, backlog, test counts), and
+   docs/DECISIONS.md when a non-obvious choice was made.
 
 ## Stack
 
@@ -69,7 +73,10 @@ Also: `mvnw` must stay LF (`.gitattributes` enforces it) or Docker/CI builds bre
 - Errors are RFC 7807 problem details.
 - **Ownership**: a foreign account behaves as missing → **404, never 403** (no
   existence leak). Transfer *source* must be owned; *destination* may be any account.
-- Money is `BigDecimal` scale 2; currency lives on the account.
+- Money is `BigDecimal` scale 2; currency lives on the account. FX conversion uses the
+  `fx` module: rates are **data** (seeded in V5, unique pair constraint), inverse pairs
+  fall back to `1/rate`, monetary rounding is **HALF_EVEN**. A transfer stores both the
+  source amount and the converted amount plus the applied rate.
 - Flyway owns the schema (`V1..V4`), Hibernate runs `ddl-auto: validate`. For a new
   entity, generate exact DDL with Hibernate schema-generation (see DECISIONS #5), then
   write the next `V__` migration by hand.
@@ -88,7 +95,7 @@ Also: `mvnw` must stay LF (`.gitattributes` enforces it) or Docker/CI builds bre
   isolation; unique emails per scenario to dodge the login rate limiter).
 - The outbox relay interval is 24h in the test profile — tests call
   `OutboxRelay.publishPending()` directly.
-- Current count: **37 tests** (17 JUnit + 20 Cucumber scenarios). Keep it green.
+- Current count: **39 tests** (18 JUnit + 21 Cucumber scenarios). Keep it green.
 
 ## Deployment state
 
@@ -101,7 +108,8 @@ Also: `mvnw` must stay LF (`.gitattributes` enforces it) or Docker/CI builds bre
 
 ## Agreed backlog (priority order)
 
-1. FX / multi-currency module (turn the cross-currency 422 into a feature)
-2. Observability: Micrometer + Prometheus registry, structured logging
-3. Playwright e2e for the Angular frontend
-4. (Parked) Fly.io deploy — waiting on paid account
+1. Playwright e2e for the Angular frontend
+2. (Parked) Fly.io deploy — waiting on paid account
+
+Done and out of the backlog: FX/multi-currency (V5, `fx` module), observability
+(Prometheus endpoint + business counters).

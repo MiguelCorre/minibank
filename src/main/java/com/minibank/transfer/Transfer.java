@@ -31,6 +31,15 @@ public class Transfer {
     @Column(nullable = false, length = 3)
     private String currency;
 
+    @Column(nullable = false, precision = 19, scale = 2)
+    private BigDecimal convertedAmount;
+
+    @Column(nullable = false, length = 3)
+    private String targetCurrency;
+
+    @Column(nullable = false, precision = 19, scale = 6)
+    private BigDecimal exchangeRate;
+
     @Column(length = 140)
     private String description;
 
@@ -42,20 +51,28 @@ public class Transfer {
     }
 
     private Transfer(String idempotencyKey, UUID fromAccountId, UUID toAccountId,
-                     BigDecimal amount, String currency, String description) {
+                     BigDecimal amount, String currency,
+                     BigDecimal convertedAmount, String targetCurrency, BigDecimal exchangeRate,
+                     String description) {
         this.id = UUID.randomUUID();
         this.idempotencyKey = idempotencyKey;
         this.fromAccountId = fromAccountId;
         this.toAccountId = toAccountId;
         this.amount = amount;
         this.currency = currency;
+        this.convertedAmount = convertedAmount;
+        this.targetCurrency = targetCurrency;
+        this.exchangeRate = exchangeRate;
         this.description = description;
         this.createdAt = Instant.now();
     }
 
     public static Transfer create(String idempotencyKey, UUID fromAccountId, UUID toAccountId,
-                                  BigDecimal amount, String currency, String description) {
-        return new Transfer(idempotencyKey, fromAccountId, toAccountId, amount, currency, description);
+                                  BigDecimal amount, String currency,
+                                  BigDecimal convertedAmount, String targetCurrency, BigDecimal exchangeRate,
+                                  String description) {
+        return new Transfer(idempotencyKey, fromAccountId, toAccountId, amount, currency,
+                convertedAmount, targetCurrency, exchangeRate, description);
     }
 
     public UUID getId() {
@@ -80,6 +97,18 @@ public class Transfer {
 
     public String getCurrency() {
         return currency;
+    }
+
+    public BigDecimal getConvertedAmount() {
+        return convertedAmount;
+    }
+
+    public String getTargetCurrency() {
+        return targetCurrency;
+    }
+
+    public BigDecimal getExchangeRate() {
+        return exchangeRate;
     }
 
     public String getDescription() {

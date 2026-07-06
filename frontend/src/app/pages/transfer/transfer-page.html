@@ -8,6 +8,12 @@
     <div class="card success">
       <h2>Transfer completed</h2>
       <p class="big">{{ transfer.amount | currency: transfer.currency }}</p>
+      @if (transfer.currency !== transfer.targetCurrency) {
+        <p class="muted">
+          Recipient receives {{ transfer.convertedAmount | currency: transfer.targetCurrency }}
+          (rate {{ transfer.exchangeRate }})
+        </p>
+      }
       <p class="mono muted">id {{ transfer.id }}</p>
       <div class="actions">
         <a class="btn ghost" [routerLink]="['/accounts', transfer.fromAccountId]">Source account</a>

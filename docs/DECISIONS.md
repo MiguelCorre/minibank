@@ -109,3 +109,25 @@ verified in production). Two real findings, then a commercial blocker:
 - **Blocker:** unpaid trial accounts stop every machine at exactly ~301s of uptime
   (documented Fly trial behavior). Deploy resumes if/when a payment method is added —
   everything else is ready.
+
+## 13. FX: rates as data, inverse fallback, banker's rounding
+
+Cross-currency transfers were a hard 422 until V5; now they convert. Exchange rates
+live in a table (seeded by migration, unique per pair) rather than code or an external
+API call — deterministic for tests, updatable without a deploy, and the seam where an
+ECB feed would plug in. Only one direction is stored per pair; the inverse is derived
+(`1/rate`, scale 6). Monetary rounding is HALF_EVEN to scale 2 (banker's rounding, the
+banking convention). The transfer persists source amount, converted amount and the
+applied rate — an FX transfer must be auditable after rates change. Pairs without a
+rate still 422 (`UnsupportedCurrencyPairException` replaced `CurrencyMismatchException`
+in the sealed hierarchy).
+
+## 14. Business metrics over infrastructure metrics
+
+Micrometer + the Prometheus registry expose `/actuator/prometheus`. Besides the free
+JVM/HTTP metrics, the domain emits `minibank.transfers.completed` (tagged by currency
+and cross-currency flag) and `minibank.logins` (tagged by result) — the counters an
+on-call engineer actually alerts on. Counters are registered at the call site with
+tags, not pre-registered, so new currencies appear automatically. The scrape endpoint
+is public in this demo; production would firewall the management port.
+

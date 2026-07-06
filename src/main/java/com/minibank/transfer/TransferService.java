@@ -13,12 +13,15 @@ import org.springframework.transaction.annotation.Transactional;
 import com.minibank.account.Account;
 import com.minibank.account.AccountRepository;
 import com.minibank.common.error.AccountNotFoundException;
-import com.minibank.common.error.CurrencyMismatchException;
 import com.minibank.common.error.DailyTransferLimitExceededException;
 import com.minibank.common.error.InvalidTransferException;
 import com.minibank.common.error.TransferNotFoundException;
+import com.minibank.fx.FxService;
 import com.minibank.ledger.LedgerEntry;
 import com.minibank.ledger.LedgerRepository;
+
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 
 @Service
 public class TransferService {
@@ -26,16 +29,20 @@ public class TransferService {
     private final TransferRepository transfers;
     private final AccountRepository accounts;
     private final LedgerRepository ledger;
+    private final FxService fx;
     private final ApplicationEventPublisher events;
+    private final MeterRegistry metrics;
     private final BigDecimal dailyLimit;
 
     public TransferService(TransferRepository transfers, AccountRepository accounts, LedgerRepository ledger,
-                           ApplicationEventPublisher events,
+                           FxService fx, ApplicationEventPublisher events, MeterRegistry metrics,
                            @Value("${minibank.limits.daily-transfer}") BigDecimal dailyLimit) {
         this.transfers = transfers;
         this.accounts = accounts;
         this.ledger = ledger;
+        this.fx = fx;
         this.events = events;
+        this.metrics = metrics;
         this.dailyLimit = dailyLimit;
     }
 
@@ -69,9 +76,6 @@ public class TransferService {
         if (!from.isOwnedBy(callerId)) {
             throw new AccountNotFoundException(fromId);
         }
-        if (!from.getCurrency().equals(to.getCurrency())) {
-            throw new CurrencyMismatchException(from.getCurrency(), to.getCurrency());
-        }
 
         Instant startOfDay = Instant.now().truncatedTo(ChronoUnit.DAYS);
         BigDecimal spentToday = transfers.sumOutgoingSince(fromId, startOfDay);
@@ -79,15 +83,25 @@ public class TransferService {
             throw new DailyTransferLimitExceededException(dailyLimit);
         }
 
-        from.debit(amount);
-        to.credit(amount);
+        // cross-currency transfers convert at the stored rate (422 if no rate exists)
+        FxService.Quote quote = fx.quote(from.getCurrency(), to.getCurrency(), amount);
 
-        Transfer transfer = transfers.save(
-                Transfer.create(idempotencyKey, fromId, toId, amount, from.getCurrency(), description));
+        from.debit(amount);
+        to.credit(quote.convertedAmount());
+
+        Transfer transfer = transfers.save(Transfer.create(
+                idempotencyKey, fromId, toId, amount, from.getCurrency(),
+                quote.convertedAmount(), to.getCurrency(), quote.rate(), description));
         ledger.save(LedgerEntry.debit(from.getId(), transfer.getId(), amount, from.getBalance()));
-        ledger.save(LedgerEntry.credit(to.getId(), transfer.getId(), amount, to.getBalance()));
+        ledger.save(LedgerEntry.credit(to.getId(), transfer.getId(), quote.convertedAmount(), to.getBalance()));
         events.publishEvent(new TransferCompleted(
-                transfer.getId(), fromId, toId, amount, from.getCurrency()));
+                transfer.getId(), fromId, toId, amount, from.getCurrency(),
+                quote.convertedAmount(), to.getCurrency()));
+        Counter.builder("minibank.transfers.completed")
+                .tag("currency", from.getCurrency())
+                .tag("cross_currency", String.valueOf(!from.getCurrency().equals(to.getCurrency())))
+                .register(metrics)
+                .increment();
         return transfer;
     }
 

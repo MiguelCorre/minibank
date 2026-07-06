@@ -41,6 +41,12 @@ It demonstrates the patterns that matter in payments/banking backends:
   semantics (a log line here — a Kafka producer in production, same pattern).
 - **Statements** — per-period account statements as **CSV or PDF** (OpenPDF) with opening
   and closing balances; the ledger endpoint is paginated.
+- **Multi-currency with FX** — cross-currency transfers convert at stored exchange rates
+  (inverse pairs supported, banker's rounding); the transfer records source and converted
+  amounts plus the applied rate. Pairs without a rate are rejected (`422`).
+- **Observability** — Prometheus scrape endpoint at `/actuator/prometheus` with business
+  metrics (`minibank_transfers_completed_total` by currency and cross-currency flag,
+  `minibank_logins_total` by result).
 - **Versioned schema with Flyway** — migrations own the database
   (`src/main/resources/db/migration`), Hibernate runs in `validate` mode.
 - **Modular monolith layout** — `account`, `transfer`, `ledger`, `auth` and `common`
@@ -139,6 +145,7 @@ other customers' accounts return `404`.
 | GET    | `/api/accounts/{id}/statement`    | CSV/PDF statement (`from`, `to`, `format`)   |
 | POST   | `/api/transfers`                  | Transfer (requires `Idempotency-Key` header) |
 | GET    | `/api/transfers/{id}`             | Transfer details                             |
+| GET    | `/api/fx/rates`                   | Exchange rates used for conversion           |
 | GET    | `/actuator/health`                | Health check                                 |
 
 ### Example session

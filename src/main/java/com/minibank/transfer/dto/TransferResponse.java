@@ -12,6 +12,9 @@ public record TransferResponse(
         UUID toAccountId,
         BigDecimal amount,
         String currency,
+        BigDecimal convertedAmount,
+        String targetCurrency,
+        BigDecimal exchangeRate,
         String description,
         Instant createdAt) {
 
@@ -22,6 +25,9 @@ public record TransferResponse(
                 transfer.getToAccountId(),
                 transfer.getAmount(),
                 transfer.getCurrency(),
+                transfer.getConvertedAmount(),
+                transfer.getTargetCurrency(),
+                transfer.getExchangeRate(),
                 transfer.getDescription(),
                 transfer.getCreatedAt());
     }

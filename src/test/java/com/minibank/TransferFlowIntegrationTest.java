@@ -13,6 +13,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.actuate.observability.AutoConfigureObservability;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
@@ -26,6 +27,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@AutoConfigureObservability // metrics export is disabled in tests by default
 @Import(TestcontainersConfiguration.class)
 class TransferFlowIntegrationTest {
 
@@ -205,6 +207,26 @@ class TransferFlowIntegrationTest {
                                 {"fromAccountId":"%s","toAccountId":"%s","amount":10.00}
                                 """.formatted(UUID.randomUUID(), UUID.randomUUID())))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void transferMetricsAreExposedForPrometheus() throws Exception {
+        String from = openAccountWithBalance("Metric", "50.00");
+        String to = openAccountWithBalance("Target", "0.00");
+        mockMvc.perform(post("/api/transfers")
+                        .header(AUTHORIZATION, bearer)
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fromAccountId":"%s","toAccountId":"%s","amount":10.00}
+                                """.formatted(from, to)))
+                .andExpect(status().isCreated());
+
+        String scrape = mockMvc.perform(get("/actuator/prometheus"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertThat(scrape).contains("minibank_transfers_completed_total");
+        assertThat(scrape).contains("minibank_logins_total");
     }
 
     @Test

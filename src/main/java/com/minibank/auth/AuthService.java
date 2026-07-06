@@ -23,6 +23,8 @@ import com.minibank.common.error.EmailAlreadyUsedException;
 import com.minibank.common.error.InvalidCredentialsException;
 import com.minibank.common.error.InvalidRefreshTokenException;
 
+import io.micrometer.core.instrument.MeterRegistry;
+
 @Service
 public class AuthService {
 
@@ -37,16 +39,18 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtEncoder jwtEncoder;
     private final LoginRateLimiter rateLimiter;
+    private final MeterRegistry metrics;
     private final SecureRandom random = new SecureRandom();
 
     public AuthService(UserRepository users, RefreshTokenRepository refreshTokens,
                        PasswordEncoder passwordEncoder, JwtEncoder jwtEncoder,
-                       LoginRateLimiter rateLimiter) {
+                       LoginRateLimiter rateLimiter, MeterRegistry metrics) {
         this.users = users;
         this.refreshTokens = refreshTokens;
         this.passwordEncoder = passwordEncoder;
         this.jwtEncoder = jwtEncoder;
         this.rateLimiter = rateLimiter;
+        this.metrics = metrics;
     }
 
     @Transactional
@@ -66,9 +70,11 @@ public class AuthService {
                 .filter(found -> passwordEncoder.matches(rawPassword, found.getPasswordHash()))
                 .orElseThrow(() -> {
                     rateLimiter.recordFailure(normalized);
+                    metrics.counter("minibank.logins", "result", "failure").increment();
                     return new InvalidCredentialsException();
                 });
         rateLimiter.reset(normalized);
+        metrics.counter("minibank.logins", "result", "success").increment();
         return issueTokenPair(user);
     }
 

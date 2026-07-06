@@ -9,5 +9,7 @@ public record TransferCompleted(
         UUID fromAccountId,
         UUID toAccountId,
         BigDecimal amount,
-        String currency) {
+        String currency,
+        BigDecimal convertedAmount,
+        String targetCurrency) {
 }

@@ -30,8 +30,14 @@ Feature: Money transfers
     When a transfer of 10.00 from "Alice" to "Alice" is attempted
     Then the request fails with status 400
 
-  Scenario: A cross-currency transfer is rejected
+  Scenario: A cross-currency transfer converts at the stored rate
     Given an account for "Chuck" in USD with balance 300.00
-    When a transfer of 50.00 from "Chuck" to "Alice" is attempted
+    When 55.00 is transferred from "Chuck" to "Alice"
+    Then the account of "Chuck" has balance 245.00
+    And the account of "Alice" has balance 550.00
+
+  Scenario: A transfer in an unsupported currency pair is rejected
+    Given an account for "Yen" in JPY with balance 300.00
+    When a transfer of 50.00 from "Yen" to "Alice" is attempted
     Then the request fails with status 422
-    And the account of "Chuck" has balance 300.00
+    And the account of "Yen" has balance 300.00

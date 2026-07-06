@@ -22,6 +22,9 @@ export interface Transfer {
   toAccountId: string;
   amount: number;
   currency: string;
+  convertedAmount: number;
+  targetCurrency: string;
+  exchangeRate: number;
   description: string | null;
   createdAt: string;
 }
