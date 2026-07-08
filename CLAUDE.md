@@ -33,6 +33,7 @@ signals + zoneless) · Node 24 · GitHub Actions CI (backend + frontend jobs).
 | Frontend build | `cd frontend && npm run build` |
 | Single deployable jar | `.\mvnw package -Pwith-frontend` |
 | Docker image | `docker build -t minibank .` |
+| E2E tests (backend must be running) | `cd frontend && npm run e2e` |
 
 Demo login: `demo@minibank.dev` / `demo1234` (seeded on first run).
 Swagger UI: `http://localhost:8080/swagger-ui.html`. Cucumber HTML report:
@@ -95,7 +96,12 @@ Also: `mvnw` must stay LF (`.gitattributes` enforces it) or Docker/CI builds bre
   isolation; unique emails per scenario to dodge the login rate limiter).
 - The outbox relay interval is 24h in the test profile — tests call
   `OutboxRelay.publishPending()` directly.
-- Current count: **39 tests** (18 JUnit + 21 Cucumber scenarios). Keep it green.
+- E2E (Playwright, `frontend/e2e`): each test registers a **fresh unique user** so runs
+  are repeatable against any database state. Use accessible selectors and `exact: true`
+  for the nav "Accounts" link (the "← All accounts" back-link also matches). Backend on
+  :8080 is a prerequisite; Playwright starts the Angular dev server itself.
+- Current count: **45 tests** (18 JUnit + 21 Cucumber scenarios + 6 Playwright e2e).
+  Keep it green.
 
 ## Deployment state
 
@@ -106,10 +112,9 @@ Also: `mvnw` must stay LF (`.gitattributes` enforces it) or Docker/CI builds bre
   301s deaths again. Do not use `fly postgres create` (single-node repmgr is broken);
   run the plain `postgres:17-alpine` image as a regular app instead.
 
-## Agreed backlog (priority order)
+## Agreed backlog
 
-1. Playwright e2e for the Angular frontend
-2. (Parked) Fly.io deploy — waiting on paid account
+1. (Parked) Fly.io deploy — waiting on paid account
 
-Done and out of the backlog: FX/multi-currency (V5, `fx` module), observability
-(Prometheus endpoint + business counters).
+The feature backlog agreed with the owner is complete: FX/multi-currency, observability,
+Playwright e2e. New work should come from a fresh conversation with the owner.

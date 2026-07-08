@@ -182,6 +182,14 @@ what runs in production. Note: Testcontainers 1.x cannot talk to Docker Engine 2
 (minimum API version raised to 1.44), which is why this project pins Testcontainers 2.x
 over the version managed by the Spring Boot BOM.
 
+### End-to-end tests (Playwright)
+
+Browser tests in [`frontend/e2e`](frontend/e2e) drive the real stack — registration,
+login, opening accounts, deposits, transfers and the ledger — each test registering a
+fresh user for isolation. Locally: start the backend, then `npm run e2e` in `frontend/`
+(Playwright starts the dev server itself). CI runs them against the packaged jar and a
+PostgreSQL service container.
+
 ### BDD acceptance tests (Cucumber)
 
 Business-readable specifications live in

@@ -131,3 +131,15 @@ on-call engineer actually alerts on. Counters are registered at the call site wi
 tags, not pre-registered, so new currencies appear automatically. The scrape endpoint
 is public in this demo; production would firewall the management port.
 
+## 15. E2E: fresh user per test, real stack, no mocks
+
+Playwright tests register a brand-new user through the UI in every test, so they are
+repeatable against any database state (local dev DBs accumulate data) and parallel-safe.
+Selectors are accessibility-first (`getByRole`/`getByLabel`) — they double as an a11y
+smoke test. Two hard-won details: the nav link "Accounts" needs `exact: true` because
+Playwright's substring matching also hits the "← All accounts" back-link; and the
+sign-out → sign-in test needs a hard `page.goto('/login')` after logout, because SPA
+teardown races can recreate the login component and silently drop filled values. In CI
+the tests run against the packaged jar plus a PostgreSQL service container — the closest
+thing to production the pipeline can offer.
+
