@@ -29,9 +29,9 @@ test('registered users can sign back in', async ({ page }) => {
   const email = uniqueEmail();
   await registerAndSignIn(page, email, 'Returning User');
   await page.getByRole('button', { name: 'Sign out' }).click();
+  // sign-out is a full page load by design; wait for the fresh document
   await expect(page).toHaveURL(/\/login$/);
-  // hard navigation: a fresh document sidesteps the SPA teardown races
-  await page.goto('/login');
+  await expect(page.getByRole('heading', { name: /Welcome to mini/ })).toBeVisible();
 
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Password').fill(PASSWORD);

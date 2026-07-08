@@ -12,8 +12,10 @@ Built with **Java 21** and **Spring Boot 3.5**.
 It demonstrates the patterns that matter in payments/banking backends:
 
 - **Idempotent transfers** — `POST /api/transfers` requires an `Idempotency-Key` header.
-  Replaying the same key returns the original transfer and never debits twice. A unique
-  constraint on the key is the backstop for concurrent duplicates (surfaced as `409`).
+  Replaying the same key returns the original transfer and never debits twice; keys are
+  **scoped per customer** (like Stripe), so someone else's key can never expose their
+  transfer. A composite unique constraint is the backstop for concurrent duplicates
+  (surfaced as `409`).
 - **Deadlock-free concurrency** — both accounts are locked with `PESSIMISTIC_WRITE` in a
   stable (UUID) order, so two opposite transfers running concurrently cannot deadlock.
   Accounts also carry a `@Version` column for optimistic-lock detection elsewhere.

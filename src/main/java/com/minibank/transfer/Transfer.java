@@ -8,16 +8,22 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
 @Entity
-@Table(name = "transfers")
+@Table(name = "transfers",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"initiated_by", "idempotency_key"}))
 public class Transfer {
 
     @Id
     private UUID id;
 
-    @Column(nullable = false, unique = true, length = 128)
+    /** Idempotency keys are scoped per initiating customer, not global. */
+    @Column(nullable = false, length = 128)
     private String idempotencyKey;
+
+    @Column(nullable = false)
+    private UUID initiatedBy;
 
     @Column(nullable = false)
     private UUID fromAccountId;
@@ -50,11 +56,12 @@ public class Transfer {
         // JPA
     }
 
-    private Transfer(String idempotencyKey, UUID fromAccountId, UUID toAccountId,
+    private Transfer(UUID initiatedBy, String idempotencyKey, UUID fromAccountId, UUID toAccountId,
                      BigDecimal amount, String currency,
                      BigDecimal convertedAmount, String targetCurrency, BigDecimal exchangeRate,
                      String description) {
         this.id = UUID.randomUUID();
+        this.initiatedBy = initiatedBy;
         this.idempotencyKey = idempotencyKey;
         this.fromAccountId = fromAccountId;
         this.toAccountId = toAccountId;
@@ -67,11 +74,11 @@ public class Transfer {
         this.createdAt = Instant.now();
     }
 
-    public static Transfer create(String idempotencyKey, UUID fromAccountId, UUID toAccountId,
+    public static Transfer create(UUID initiatedBy, String idempotencyKey, UUID fromAccountId, UUID toAccountId,
                                   BigDecimal amount, String currency,
                                   BigDecimal convertedAmount, String targetCurrency, BigDecimal exchangeRate,
                                   String description) {
-        return new Transfer(idempotencyKey, fromAccountId, toAccountId, amount, currency,
+        return new Transfer(initiatedBy, idempotencyKey, fromAccountId, toAccountId, amount, currency,
                 convertedAmount, targetCurrency, exchangeRate, description);
     }
 
@@ -81,6 +88,10 @@ public class Transfer {
 
     public String getIdempotencyKey() {
         return idempotencyKey;
+    }
+
+    public UUID getInitiatedBy() {
+        return initiatedBy;
     }
 
     public UUID getFromAccountId() {

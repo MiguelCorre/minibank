@@ -55,7 +55,9 @@ public class TransferService {
     @Transactional
     public Transfer transfer(UUID callerId, String idempotencyKey, UUID fromId, UUID toId,
                              BigDecimal amount, String description) {
-        var existing = transfers.findByIdempotencyKey(idempotencyKey);
+        // keys are scoped per initiating customer: someone else's key can
+        // never return (or block on) their transfer
+        var existing = transfers.findByInitiatedByAndIdempotencyKey(callerId, idempotencyKey);
         if (existing.isPresent()) {
             return existing.get();
         }
@@ -90,7 +92,7 @@ public class TransferService {
         to.credit(quote.convertedAmount());
 
         Transfer transfer = transfers.save(Transfer.create(
-                idempotencyKey, fromId, toId, amount, from.getCurrency(),
+                callerId, idempotencyKey, fromId, toId, amount, from.getCurrency(),
                 quote.convertedAmount(), to.getCurrency(), quote.rate(), description));
         ledger.save(LedgerEntry.debit(from.getId(), transfer.getId(), amount, from.getBalance()));
         ledger.save(LedgerEntry.credit(to.getId(), transfer.getId(), quote.convertedAmount(), to.getBalance()));

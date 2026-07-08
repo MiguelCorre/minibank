@@ -58,6 +58,6 @@ class ApiExceptionHandler {
     @ExceptionHandler(DataIntegrityViolationException.class)
     ProblemDetail onDataConflict(DataIntegrityViolationException ex) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT,
-                "Request conflicts with concurrent state; retry with the same Idempotency-Key");
+                "Request conflicts with existing data; if this was a retry, it is safe to repeat it");
     }
 }

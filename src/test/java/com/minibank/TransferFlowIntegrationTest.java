@@ -210,6 +210,62 @@ class TransferFlowIntegrationTest {
     }
 
     @Test
+    void idempotencyKeysAreScopedPerCustomer() throws Exception {
+        // customer A transfers with key K
+        String aFrom = openAccountWithBalance("ScopeA", "100.00");
+        String aTo = openAccountWithBalance("ScopeA2", "0.00");
+        String key = UUID.randomUUID().toString();
+        String aTransferId = objectMapper.readTree(mockMvc.perform(post("/api/transfers")
+                                .header(AUTHORIZATION, bearer)
+                                .header("Idempotency-Key", key)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {"fromAccountId":"%s","toAccountId":"%s","amount":30.00}
+                                        """.formatted(aFrom, aTo)))
+                        .andExpect(status().isCreated())
+                        .andReturn().getResponse().getContentAsString())
+                .get("id").asText();
+
+        // customer B reuses the SAME key: they must get their OWN transfer,
+        // never A's (which would leak A's account ids and amounts)
+        String bEmail = "scope-b-" + UUID.randomUUID() + "@test.dev";
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"%s","password":"password123","displayName":"B"}
+                                """.formatted(bEmail)))
+                .andExpect(status().isCreated());
+        String bBearer = "Bearer " + objectMapper.readTree(mockMvc.perform(post("/api/auth/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {"email":"%s","password":"password123"}
+                                        """.formatted(bEmail)))
+                        .andReturn().getResponse().getContentAsString())
+                .get("accessToken").asText();
+
+        String savedBearer = bearer;
+        bearer = bBearer;
+        String bFrom = openAccountWithBalance("ScopeB", "100.00");
+        String bTo = openAccountWithBalance("ScopeB2", "0.00");
+        bearer = savedBearer;
+
+        String bTransferId = objectMapper.readTree(mockMvc.perform(post("/api/transfers")
+                                .header(AUTHORIZATION, bBearer)
+                                .header("Idempotency-Key", key)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {"fromAccountId":"%s","toAccountId":"%s","amount":5.00}
+                                        """.formatted(bFrom, bTo)))
+                        .andExpect(status().isCreated())
+                        .andExpect(jsonPath("$.amount").value(5.00))
+                        .andReturn().getResponse().getContentAsString())
+                .get("id").asText();
+
+        assertThat(bTransferId).isNotEqualTo(aTransferId);
+        assertThat(balanceOf(aFrom)).isEqualByComparingTo("70.00"); // A untouched by B's replay
+    }
+
+    @Test
     void transferMetricsAreExposedForPrometheus() throws Exception {
         String from = openAccountWithBalance("Metric", "50.00");
         String to = openAccountWithBalance("Target", "0.00");

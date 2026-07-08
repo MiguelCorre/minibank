@@ -138,8 +138,29 @@ repeatable against any database state (local dev DBs accumulate data) and parall
 Selectors are accessibility-first (`getByRole`/`getByLabel`) — they double as an a11y
 smoke test. Two hard-won details: the nav link "Accounts" needs `exact: true` because
 Playwright's substring matching also hits the "← All accounts" back-link; and the
-sign-out → sign-in test needs a hard `page.goto('/login')` after logout, because SPA
-teardown races can recreate the login component and silently drop filled values. In CI
-the tests run against the packaged jar plus a PostgreSQL service container — the closest
-thing to production the pipeline can offer.
+sign-out → sign-in test originally needed a hard `page.goto('/login')` after logout,
+because SPA teardown races could recreate the login component and silently drop filled
+values — later fixed for real by #17. In CI the tests run against the packaged jar plus
+a PostgreSQL service container — the closest thing to production the pipeline can offer.
+
+## 16. Idempotency keys are scoped per customer
+
+The original global-unique key had a broken-access-control hole the e2e-era audit
+caught: the replay lookup ran *before* any ownership check, so replaying someone else's
+key returned *their* transfer — account ids, amount, currency. Fix (V6): keys are
+unique per `(initiated_by, idempotency_key)`, Stripe-style. Two customers can use the
+same key and each only ever sees their own transfer; the composite constraint remains
+the concurrent-duplicate backstop. Lesson recorded in CLAUDE.md: never make that lookup
+global again.
+
+## 17. Hardening round: purges, eviction, hard-reload sign-out
+
+Three long-running-process concerns fixed in one pass. Revoked/expired refresh tokens
+and published outbox events are purged on a schedule
+(`minibank.housekeeping.retention`, default 30d — tests set 0s to make purges
+observable). The login rate limiter evicts expired windows so the in-memory map cannot
+grow with never-returning emails. And sign-out became a **full page reload**
+(`window.location.assign`) instead of SPA navigation: a fresh document guarantees no
+in-memory state survives the session — the posture a bank wants — and it eliminated the
+teardown race documented in #15.
 

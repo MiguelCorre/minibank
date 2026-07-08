@@ -11,7 +11,7 @@ import org.springframework.data.repository.query.Param;
 
 public interface TransferRepository extends JpaRepository<Transfer, UUID> {
 
-    Optional<Transfer> findByIdempotencyKey(String idempotencyKey);
+    Optional<Transfer> findByInitiatedByAndIdempotencyKey(UUID initiatedBy, String idempotencyKey);
 
     @Query("select coalesce(sum(t.amount), 0) from Transfer t "
             + "where t.fromAccountId = :accountId and t.createdAt >= :since")

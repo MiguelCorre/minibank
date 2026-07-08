@@ -2,3 +2,7 @@ minibank:
   outbox:
     # tests trigger the relay explicitly; keep the scheduler out of the way
     relay-interval: 24h
+  housekeeping:
+    interval: 24h
+    # retention 0 lets purge tests delete rows they just created
+    retention: 0s

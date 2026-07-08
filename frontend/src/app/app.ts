@@ -1,5 +1,5 @@
 import { Component, inject } from '@angular/core';
-import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 import { AuthService } from './core/auth';
 
@@ -11,10 +11,10 @@ import { AuthService } from './core/auth';
 })
 export class App {
   protected readonly auth = inject(AuthService);
-  private readonly router = inject(Router);
 
   logout(): void {
     this.auth.logout();
-    this.router.navigate(['/login']);
+    // full page load: no SPA state survives a sign-out
+    window.location.assign('/login');
   }
 }

@@ -17,6 +17,8 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.minibank.auth.RefreshTokenHousekeeping;
+import com.minibank.auth.RefreshTokenRepository;
 import com.minibank.outbox.OutboxEventRepository;
 import com.minibank.outbox.OutboxRelay;
 
@@ -37,6 +39,12 @@ class OutboxIntegrationTest {
 
     @Autowired
     private OutboxRelay relay;
+
+    @Autowired
+    private RefreshTokenHousekeeping housekeeping;
+
+    @Autowired
+    private RefreshTokenRepository refreshTokens;
 
     @Test
     void completedTransfersLandInTheOutboxAndAreRelayed() throws Exception {
@@ -81,6 +89,39 @@ class OutboxIntegrationTest {
         relay.publishPending();
         var relayed = outbox.findById(event.getId()).orElseThrow();
         assertThat(relayed.getPublishedAt()).isNotNull();
+
+        // housekeeping purges published events (retention is 0s in tests)
+        relay.purgePublished();
+        assertThat(outbox.findById(event.getId())).isEmpty();
+    }
+
+    @Test
+    void staleRefreshTokensArePurged() throws Exception {
+        String email = "purge-" + UUID.randomUUID() + "@test.dev";
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"%s","password":"password123","displayName":"Purge"}
+                                """.formatted(email)))
+                .andExpect(status().isCreated());
+        String refreshToken = objectMapper.readTree(mockMvc.perform(post("/api/auth/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {"email":"%s","password":"password123"}
+                                        """.formatted(email)))
+                        .andReturn().getResponse().getContentAsString())
+                .get("refreshToken").asText();
+
+        mockMvc.perform(post("/api/auth/logout")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"refreshToken":"%s"}
+                                """.formatted(refreshToken)))
+                .andExpect(status().isNoContent());
+
+        long revokedBefore = refreshTokens.count();
+        housekeeping.purgeStaleTokens(); // retention 0s: revoked tokens go immediately
+        assertThat(refreshTokens.count()).isLessThan(revokedBefore);
     }
 
     private String openAccount(String bearer, String holder, String amount) throws Exception {

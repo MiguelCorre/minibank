@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import com.minibank.common.error.TooManyLoginAttemptsException;
@@ -44,6 +45,12 @@ public class LoginRateLimiter {
 
     public void reset(String key) {
         windows.remove(key);
+    }
+
+    /** Keeps the map from growing with emails that never come back. */
+    @Scheduled(fixedDelayString = "${minibank.housekeeping.interval:6h}")
+    public void evictExpiredWindows() {
+        windows.entrySet().removeIf(entry -> expired(entry.getValue()));
     }
 
     private static boolean expired(Window window) {

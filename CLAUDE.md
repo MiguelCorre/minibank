@@ -83,6 +83,14 @@ Also: `mvnw` must stay LF (`.gitattributes` enforces it) or Docker/CI builds bre
   write the next `V__` migration by hand.
 - Domain events go through the transactional outbox (`outbox` module); the relay is
   where a real broker would plug in.
+- Idempotency keys are **scoped per initiating customer** (V6: unique on
+  `(initiated_by, idempotency_key)`) — never make the lookup global again; that was a
+  cross-customer information leak.
+- Housekeeping: scheduled purges for stale refresh tokens and published outbox events
+  (`minibank.housekeeping.interval`/`retention`; retention is 0s in the test profile so
+  purge tests can delete rows they just created). Sign-out in the frontend is a **full
+  page reload** by design (clean-slate security posture; also removes SPA teardown
+  races).
 - Frontend: the auth interceptor must **never** attach the bearer token to the anonymous
   auth endpoints (`/api/auth/login|register|refresh|logout`) — the resource server
   401s stale tokens even on permitAll routes, which would break silent refresh.
@@ -100,7 +108,7 @@ Also: `mvnw` must stay LF (`.gitattributes` enforces it) or Docker/CI builds bre
   are repeatable against any database state. Use accessible selectors and `exact: true`
   for the nav "Accounts" link (the "← All accounts" back-link also matches). Backend on
   :8080 is a prerequisite; Playwright starts the Angular dev server itself.
-- Current count: **45 tests** (18 JUnit + 21 Cucumber scenarios + 6 Playwright e2e).
+- Current count: **47 tests** (20 JUnit + 21 Cucumber scenarios + 6 Playwright e2e).
   Keep it green.
 
 ## Deployment state
